@@ -5,6 +5,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.domain.model.S
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.domain.repository.SolicitudRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.infrastructure.persistence.jpa.SolicitudJpaRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.infrastructure.persistence.mapper.SolicitudPersistenceMapper;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,5 +39,21 @@ public class SolicitudPersistenceAdapter implements SolicitudRepository {
     @Override
     public Solicitud guardar(Solicitud solicitud) {
         return SolicitudPersistenceMapper.aDominio(jpa.save(SolicitudPersistenceMapper.aEntidad(solicitud)));
+    }
+
+    @Override
+    public List<Solicitud> buscarPorTexto(String texto) {
+        List<Solicitud> resultados = new ArrayList<>(
+                jpa.findByDescripcionContainingIgnoreCase(texto).stream()
+                        .map(SolicitudPersistenceMapper::aDominio).toList());
+        try {
+            jpa.findById(UUID.fromString(texto.trim()))
+                    .map(SolicitudPersistenceMapper::aDominio)
+                    .filter(s -> resultados.stream().noneMatch(r -> r.id().equals(s.id())))
+                    .ifPresent(resultados::add);
+        } catch (IllegalArgumentException ignored) {
+            // No es un UUID: solo la búsqueda por descripción.
+        }
+        return resultados;
     }
 }

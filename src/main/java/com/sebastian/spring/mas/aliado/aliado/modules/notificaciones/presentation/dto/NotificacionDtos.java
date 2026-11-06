@@ -7,6 +7,6 @@ import java.util.UUID;
 public final class NotificacionDtos {
     private NotificacionDtos() {}
 
-    public record NotificacionResponse(UUID id, String tipo, UUID servicioId, String detalle,
+    public record NotificacionResponse(UUID id, String tipo, UUID servicioId, UUID solicitudId, String detalle,
                                        String estadoEntrega, OffsetDateTime fechaGeneracion) {}
 }

@@ -15,5 +15,6 @@ public final class Eventos {
                                     UUID prestadorId, OffsetDateTime fecha) {}
     public record ServicioEstadoCambiado(UUID servicioId, UUID clienteId, UUID prestadorId,
                                          String estadoAnterior, String estadoNuevo, UUID actorId,
-                                         OffsetDateTime fecha) {}
+                                         OffsetDateTime fecha, int version) {}
+    public record EliminacionConfirmada(UUID usuarioId, OffsetDateTime fecha) {}
 }

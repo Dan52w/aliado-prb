@@ -1,7 +1,9 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.application;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.application.port.FormalizacionAdminPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.domain.model.Enlace;
+import com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.domain.model.EstadoEnlace;
 import com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.domain.model.Paso;
 import com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.domain.model.Progreso;
 import com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.domain.model.Ruta;
@@ -20,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * El contenido es orientativo: nunca certifica ni declara estatus legal o formal.
  */
 @Service
-public class FormalizacionService {
+public class FormalizacionService implements FormalizacionAdminPort {
     /** Aviso legal visible siempre junto al contenido (SPEC-13). */
     public static final String AVISO_LEGAL =
             "Contenido orientativo e informativo: no certifica ni declara ningún estatus legal o formal.";
@@ -63,9 +65,40 @@ public class FormalizacionService {
 
     @Transactional(readOnly = true)
     public List<Progreso> progreso(UUID prestadorId) {
-        return rutas.activas().stream()
+        List<Progreso> registros = rutas.activas().stream()
                 .map(r -> progresos.porPrestadorYRuta(prestadorId, r.id()).orElse(null))
                 .filter(p -> p != null).toList();
+        // Sin progreso previo no hay nada que mostrar: 404, no una lista vacía que
+        // parece un progreso en cero (coherente con miVerificacion, SPEC-10).
+        if (registros.isEmpty()) {
+            throw new BusinessException.NotFound("SIN_PROGRESO",
+                    "Aún no tienes progreso registrado en formalización.");
+        }
+        return registros;
+    }
+
+    /** Gestión admin de enlaces (SPEC-13): deshabilitar o corregir sin tocar la BD a mano. */
+    @Override
+    @Transactional
+    public Enlace actualizarEnlace(UUID enlaceId, String nombre, String url, String estado) {
+        Enlace actual = enlaces.porId(enlaceId)
+                .orElseThrow(() -> new BusinessException.NotFound("ENLACE_NO_ENCONTRADO",
+                        "Enlace no encontrado."));
+        if (nombre != null && nombre.isBlank()) {
+            throw new BusinessException.BadRequest("NOMBRE_REQUERIDO", "El nombre no puede estar vacío.");
+        }
+        EstadoEnlace nuevoEstado = actual.estado();
+        if (estado != null) {
+            try {
+                nuevoEstado = EstadoEnlace.valueOf(estado.trim());
+            } catch (IllegalArgumentException ex) {
+                throw new BusinessException.BadRequest("ESTADO_INVALIDO",
+                        "Estado inválido: use DISPONIBLE o NO_DISPONIBLE.");
+            }
+        }
+        return enlaces.guardar(new Enlace(actual.id(), actual.pasoId(),
+                nombre == null ? actual.nombre() : nombre.trim(),
+                url == null ? actual.url() : url.trim(), nuevoEstado));
     }
 
     @Transactional

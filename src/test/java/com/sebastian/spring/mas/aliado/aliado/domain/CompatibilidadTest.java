@@ -2,6 +2,8 @@ package com.sebastian.spring.mas.aliado.aliado.domain;
 
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.oportunidades.application.OportunidadService;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfil.application.port.PerfilVisibilidadPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.model.Visibilidad;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.port.PerfilProfesionalConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.Disponibilidad;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.EstadoExposicion;
@@ -24,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
@@ -39,6 +42,8 @@ class CompatibilidadTest {
     private PerfilProfesionalConsultaPort perfiles;
     @Mock
     private CatalogoConsultaPort catalogo;
+    @Mock
+    private PerfilVisibilidadPort visibilidad;
 
     private static final UUID CAT = UUID.randomUUID();
     private static final UUID ZONA = UUID.randomUUID();
@@ -64,10 +69,12 @@ class CompatibilidadTest {
     }
 
     private OportunidadService servicio() {
-        return new OportunidadService(solicitudes, perfiles, catalogo);
+        return new OportunidadService(solicitudes, perfiles, catalogo, visibilidad);
     }
 
     private void preparar(boolean conDisponibilidad, boolean publico) {
+        // Lenient: con perfil OCULTO, compatible() se detiene antes de consultar visibilidad.
+        lenient().when(visibilidad.preferenciaDe(PRESTADOR)).thenReturn(Visibilidad.PUBLICO);
         when(solicitudes.porId(SOLICITUD_ID)).thenReturn(Optional.of(solicitud()));
         when(perfiles.porPrestadorId(PRESTADOR)).thenReturn(Optional.of(perfil(conDisponibilidad, publico)));
     }
@@ -98,6 +105,13 @@ class CompatibilidadTest {
                 OffsetDateTime.now(), Set.of(UUID.randomUUID()), Set.of(ZONA), List.of(), List.of(),
                 List.of(new Disponibilidad(UUID.randomUUID(), UUID.randomUUID(), 1, LocalTime.of(8, 0),
                         LocalTime.of(12, 0))), List.of())));
+        assertFalse(servicio().esCompatible(SOLICITUD_ID, PRESTADOR));
+    }
+
+    @Test
+    void noCompatibleSiPerfilPrivado() {
+        preparar(true, true);
+        when(visibilidad.preferenciaDe(PRESTADOR)).thenReturn(Visibilidad.PRIVADO);
         assertFalse(servicio().esCompatible(SOLICITUD_ID, PRESTADOR));
     }
 

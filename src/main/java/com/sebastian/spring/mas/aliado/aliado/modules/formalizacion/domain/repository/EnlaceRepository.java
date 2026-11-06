@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface EnlaceRepository {
     Optional<Enlace> porId(UUID id);
     List<Enlace> porPaso(UUID pasoId);
+    Enlace guardar(Enlace enlace);
 }

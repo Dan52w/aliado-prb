@@ -1,14 +1,19 @@
 package com.sebastian.spring.mas.aliado.aliado.common.web;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -39,6 +44,26 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiError> estadoInvalido(IllegalStateException ex, HttpServletRequest req) {
         return respuesta(HttpStatus.INTERNAL_SERVER_ERROR, "ERROR_INTERNO", "Ocurrió un error inesperado.", req);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> integridad(DataIntegrityViolationException ex, HttpServletRequest req) {
+        // Carrera de unicidad (p. ej. registro duplicado concurrente): 409, no 500.
+        return respuesta(HttpStatus.CONFLICT, "REGISTRO_DUPLICADO", "El registro ya existe.", req);
+    }
+
+    @ExceptionHandler({OptimisticLockException.class, ObjectOptimisticLockingFailureException.class})
+    public ResponseEntity<ApiError> bloqueoOptimista(RuntimeException ex, HttpServletRequest req) {
+        // Escritura concurrente sobre la misma versión: 409, no 500.
+        return respuesta(HttpStatus.CONFLICT, "CONFLICTO_CONCURRENCIA",
+                "El recurso fue modificado por otro usuario. Vuelve a intentarlo.", req);
+    }
+
+    @ExceptionHandler({MultipartException.class, MissingServletRequestPartException.class})
+    public ResponseEntity<ApiError> multipart(RuntimeException ex, HttpServletRequest req) {
+        // Parte faltante o multipart inválido (incluye tamaño excedido): 400, no 500.
+        return respuesta(HttpStatus.BAD_REQUEST, "ARCHIVO_INVALIDO",
+                "El archivo enviado es inválido o falta una parte requerida.", req);
     }
 
     @ExceptionHandler(Exception.class)

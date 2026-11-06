@@ -1,5 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.presentation.controller;
 
+import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoValidacion;
 import com.sebastian.spring.mas.aliado.aliado.common.web.BaseController;
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
 import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyService;
@@ -14,6 +16,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -93,11 +96,46 @@ public class SolicitudController extends BaseController {
 
     @PostMapping(value = "/{id}/fotos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<SolicitudDtos.FotoResponse> agregarFoto(@PathVariable UUID id,
-            @RequestPart("archivo") MultipartFile archivo) throws IOException {
+            @RequestPart("archivo") MultipartFile archivo) {
         SecurityUtils.exigirRol("CLIENTE");
         var foto = solicitudService.agregarFoto(id, SecurityUtils.actual().id(),
-                archivo.getOriginalFilename(), archivo.getContentType(), archivo.getBytes());
+                archivo.getOriginalFilename(), archivo.getContentType(), leerBytes(archivo));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new SolicitudDtos.FotoResponse(foto.id(), foto.archivoKey(), foto.orden()));
+    }
+
+    @GetMapping("/{id}/fotos/{fotoId}")
+    public ResponseEntity<byte[]> descargarFoto(@PathVariable UUID id, @PathVariable UUID fotoId) {
+        byte[] contenido = solicitudService.descargarFoto(id, fotoId, SecurityUtils.actual().id());
+        String tipo = ArchivoValidacion.detectarTipo(contenido);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        tipo == null ? MediaType.APPLICATION_OCTET_STREAM_VALUE : tipo))
+                .body(contenido);
+    }
+
+    @PutMapping(value = "/{id}/fotos/{fotoId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<SolicitudDtos.FotoResponse> reemplazarFoto(@PathVariable UUID id,
+            @PathVariable UUID fotoId, @RequestPart("archivo") MultipartFile archivo) {
+        SecurityUtils.exigirRol("CLIENTE");
+        var foto = solicitudService.reemplazarFoto(id, fotoId, SecurityUtils.actual().id(),
+                archivo.getOriginalFilename(), archivo.getContentType(), leerBytes(archivo));
+        return ResponseEntity.ok(new SolicitudDtos.FotoResponse(foto.id(), foto.archivoKey(), foto.orden()));
+    }
+
+    @DeleteMapping("/{id}/fotos/{fotoId}")
+    public ResponseEntity<Void> eliminarFoto(@PathVariable UUID id, @PathVariable UUID fotoId) {
+        SecurityUtils.exigirRol("CLIENTE");
+        solicitudService.eliminarFoto(id, fotoId, SecurityUtils.actual().id());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Un fallo de lectura del multipart es un 400, no un 500 (SPEC-10/11). */
+    private static byte[] leerBytes(MultipartFile archivo) {
+        try {
+            return archivo.getBytes();
+        } catch (IOException ex) {
+            throw new BusinessException.BadRequest("ARCHIVO_INVALIDO", "No se pudo leer el archivo enviado.");
+        }
     }
 }

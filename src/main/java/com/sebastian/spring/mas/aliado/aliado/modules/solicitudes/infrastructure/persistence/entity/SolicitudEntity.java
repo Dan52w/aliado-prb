@@ -21,11 +21,10 @@ public class SolicitudEntity {
     private UUID id;
     @Column(name = "cliente_id", nullable = false)
     private UUID clienteId;
-    @Column(name = "categoria_id", nullable = false)
+    @Column(name = "categoria_id")
     private UUID categoriaId;
-    @Column(name = "zona_id", nullable = false)
+    @Column(name = "zona_id")
     private UUID zonaId;
-    @Column(nullable = false)
     private String descripcion;
     private String urgencia;
     @Column(nullable = false)

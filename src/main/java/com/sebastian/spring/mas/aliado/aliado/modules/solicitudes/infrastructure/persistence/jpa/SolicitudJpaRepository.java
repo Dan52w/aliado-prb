@@ -8,4 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SolicitudJpaRepository extends JpaRepository<SolicitudEntity, UUID> {
     List<SolicitudEntity> findByClienteIdOrderByFechaCreacionDesc(UUID clienteId);
     List<SolicitudEntity> findByEstadoOrderByFechaCreacionDesc(String estado);
+    List<SolicitudEntity> findByDescripcionContainingIgnoreCase(String texto);
 }

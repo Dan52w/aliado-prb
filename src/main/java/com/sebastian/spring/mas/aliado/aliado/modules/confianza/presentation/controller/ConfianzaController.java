@@ -1,5 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.confianza.presentation.controller;
 
+import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.ConfianzaService;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.VerificacionService;
@@ -56,14 +57,29 @@ public class ConfianzaController {
                 info.reputacion().valor(), info.reputacion().cantidad(), info.nivelVerificacion().name()));
     }
 
+    @GetMapping("/prestadores/{prestadorId}/resenas")
+    public ResponseEntity<List<ConfianzaDtos.ResenaPublicaResponse>> resenas(@PathVariable UUID prestadorId) {
+        return ResponseEntity.ok(service.resenasVisiblesDe(prestadorId).stream()
+                .map(r -> new ConfianzaDtos.ResenaPublicaResponse(r.id(), r.valor(), r.texto(),
+                        r.fechaCreacion()))
+                .toList());
+    }
+
     @PostMapping(value = "/verificaciones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ConfianzaDtos.VerificacionResponse> solicitarVerificacion(
-            @RequestPart("documentos") List<MultipartFile> documentos) throws IOException {
+            @RequestPart("documentos") List<MultipartFile> documentos) {
         SecurityUtils.exigirRol("PRESTADOR");
         List<VerificacionService.ArchivoSubido> archivos = new ArrayList<>();
         for (MultipartFile archivo : documentos) {
+            byte[] contenido;
+            try {
+                contenido = archivo.getBytes();
+            } catch (IOException ex) {
+                throw new BusinessException.BadRequest("ARCHIVO_INVALIDO",
+                        "No se pudo leer el archivo enviado.");
+            }
             archivos.add(new VerificacionService.ArchivoSubido(archivo.getOriginalFilename(),
-                    archivo.getContentType(), archivo.getBytes()));
+                    archivo.getContentType(), contenido));
         }
         var solicitud = verificaciones.solicitarVerificacion(SecurityUtils.actual().id(), archivos);
         return ResponseEntity.status(HttpStatus.ACCEPTED)

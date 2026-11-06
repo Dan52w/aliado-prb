@@ -1,7 +1,5 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.presentation.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -11,9 +9,9 @@ public final class SolicitudDtos {
     private SolicitudDtos() {}
 
     public record CrearRequest(
-            @NotNull UUID categoriaId,
-            @NotBlank String descripcion,
-            @NotNull UUID zonaId,
+            UUID categoriaId,
+            String descripcion,
+            UUID zonaId,
             String urgencia,
             String estadoDeseado) {}
 

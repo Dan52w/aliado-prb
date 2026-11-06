@@ -8,8 +8,8 @@ import java.util.UUID;
 
 /** Lectura de la bandeja de notificaciones propias (SPEC-09). */
 public interface NotificacionConsultaPort {
-    record NotificacionConsulta(UUID id, TipoNotificacion tipo, UUID servicioId, String detalle,
-                                EstadoEntrega estadoEntrega, OffsetDateTime fechaGeneracion) {}
+    record NotificacionConsulta(UUID id, TipoNotificacion tipo, UUID servicioId, UUID solicitudId,
+                                String detalle, EstadoEntrega estadoEntrega, OffsetDateTime fechaGeneracion) {}
 
     List<NotificacionConsulta> listarPropias(UUID destinatarioId);
     List<NotificacionConsulta> listarPorTipo(UUID destinatarioId, TipoNotificacion tipo);

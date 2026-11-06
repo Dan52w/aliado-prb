@@ -23,7 +23,7 @@ CREATE TABLE pasos_formalizacion (
     CONSTRAINT uq_paso_orden_ruta UNIQUE (ruta_id, orden)
 );
 
-CREATE TABLE enlaces_institucionales (
+CREATE TABLE enlaces_formalizacion (
     id       UUID PRIMARY KEY,
     paso_id  UUID         NOT NULL REFERENCES pasos_formalizacion (id),
     nombre   VARCHAR(200) NOT NULL,

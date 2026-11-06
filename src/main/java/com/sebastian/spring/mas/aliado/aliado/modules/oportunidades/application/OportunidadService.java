@@ -4,6 +4,8 @@ import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.oportunidades.application.port.CompatibilidadPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.oportunidades.domain.model.Oportunidad;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfil.application.port.PerfilVisibilidadPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.model.Visibilidad;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.port.PerfilProfesionalConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.EstadoExposicion;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.PerfilProfesional;
@@ -26,12 +28,14 @@ public class OportunidadService implements CompatibilidadPort {
     private final SolicitudConsultaPort solicitudes;
     private final PerfilProfesionalConsultaPort perfiles;
     private final CatalogoConsultaPort catalogo;
+    private final PerfilVisibilidadPort visibilidad;
 
     public OportunidadService(SolicitudConsultaPort solicitudes, PerfilProfesionalConsultaPort perfiles,
-                              CatalogoConsultaPort catalogo) {
+                              CatalogoConsultaPort catalogo, PerfilVisibilidadPort visibilidad) {
         this.solicitudes = solicitudes;
         this.perfiles = perfiles;
         this.catalogo = catalogo;
+        this.visibilidad = visibilidad;
     }
 
     @Transactional(readOnly = true)
@@ -92,6 +96,10 @@ public class OportunidadService implements CompatibilidadPort {
             return false;
         }
         if (perfil.estadoExposicion() != EstadoExposicion.PUBLICO) {
+            return false;
+        }
+        // SPEC-02 FR-004: un perfil PRIVADO nunca se ofrece ni se notifica como compatible.
+        if (visibilidad.preferenciaDe(perfil.prestadorId()) == Visibilidad.PRIVADO) {
             return false;
         }
         if (!perfil.categoriaIds().contains(solicitud.categoriaId())) {

@@ -84,6 +84,18 @@ public class PropuestaService implements PropuestaConsultaPort {
     @Transactional
     public Propuesta editar(UUID propuestaId, UUID prestadorId, String disponibilidad, String mensaje) {
         Propuesta actual = propiaActiva(propuestaId, prestadorId);
+        // disponibilidad es NOT NULL y VARCHAR(255) en V4: vacía o más larga rompía
+        // con 500 al persistir; ahora se valida en aplicación con 400 (SPEC-07).
+        if (disponibilidad != null) {
+            if (disponibilidad.isBlank()) {
+                throw new BusinessException.BadRequest("DISPONIBILIDAD_INVALIDA",
+                        "La disponibilidad no puede estar vacía.");
+            }
+            if (disponibilidad.length() > 255) {
+                throw new BusinessException.BadRequest("DISPONIBILIDAD_MUY_LARGA",
+                        "La disponibilidad admite máximo 255 caracteres.");
+            }
+        }
         if (mensaje != null && mensaje.length() > 1000) {
             throw new BusinessException.BadRequest("MENSAJE_MUY_LARGO", "El mensaje admite máximo 1000 caracteres.");
         }

@@ -1,6 +1,8 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.administracion.application;
 
+import com.sebastian.spring.mas.aliado.aliado.modules.reportes.application.EvidenciaContenido;
 import com.sebastian.spring.mas.aliado.aliado.modules.reportes.application.port.ReporteAdminPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.reportes.domain.model.EvidenciaReporte;
 import com.sebastian.spring.mas.aliado.aliado.modules.reportes.domain.model.Reporte;
 import java.util.List;
 import java.util.UUID;
@@ -38,5 +40,15 @@ public class ReporteModeracionService {
         Reporte resuelto = reportes.resolver(reporteId, administradorId, resultado, justificacion);
         auditoriaService.registrar(administradorId, "REPORT_RESOLVED", "REPORTE", reporteId, resultado);
         return resuelto;
+    }
+
+    @Transactional(readOnly = true)
+    public List<EvidenciaReporte> evidenciasDe(UUID reporteId) {
+        return reportes.evidenciasDe(reporteId);
+    }
+
+    @Transactional(readOnly = true)
+    public EvidenciaContenido descargarEvidencia(UUID reporteId, UUID evidenciaId) {
+        return reportes.descargarEvidencia(reporteId, evidenciaId);
     }
 }

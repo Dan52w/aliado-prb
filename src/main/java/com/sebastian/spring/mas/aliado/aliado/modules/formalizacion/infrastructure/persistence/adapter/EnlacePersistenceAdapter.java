@@ -28,4 +28,10 @@ public class EnlacePersistenceAdapter implements EnlaceRepository {
     public List<Enlace> porPaso(UUID pasoId) {
         return enlaces.findByPasoId(pasoId).stream().map(FormalizacionPersistenceMapper::aDominio).toList();
     }
+
+    @Override
+    public Enlace guardar(Enlace enlace) {
+        return FormalizacionPersistenceMapper.aDominio(
+                enlaces.save(FormalizacionPersistenceMapper.aEntidad(enlace)));
+    }
 }

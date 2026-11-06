@@ -71,6 +71,46 @@ registra en el log solo para desarrollo.
   entrega asíncrona cada 60 s por scheduler (canal Log), máximo 3 intentos.
 - **Idempotencia:** header `Idempotency-Key` en registro, crear solicitud,
   crear propuesta y aceptar propuesta.
+- **Visibilidad (SPEC-02/03/06):** `PRIVADO` nunca aparece en descubrimiento ni
+  como compatible en oportunidades; `SOLO_ZONA` solo aparece en búsquedas
+  acotadas a su zona; `PUBLICO` siempre visible. La lectura vive en el servicio
+  dedicado `PreferenciaVisibilidadService` (sin dependencias de otros servicios,
+  para no cerrar un ciclo entre módulos).
+- **Campos públicos de `datosGenerales` (SPEC-03):** el SPEC no define los campos
+  ("a definir por UI"); la lista blanca `PerfilProfesional.DATOS_PUBLICOS`
+  permite solo claves de presentación (descripción, experiencia, especialidades,
+  formación, idiomas, sitio web, etc.). Teléfono, dirección, correo o documento
+  nunca salen del perfil propio aunque estén guardados ahí.
+- **Borrador parcial (SPEC-04):** crear en `BORRADOR` admite categoría, zona y
+  descripción vacías (V8 relajó sus `NOT NULL`); `publicar` revalida que esté
+  completo y que categoría y zona sigan activas.
+- **Indicadores (SPEC-14, T007):** el SPEC no fija las fórmulas. `TERMINADO`
+  (trabajo terminado por el prestador, pendiente de confirmación del cliente)
+  cuenta como finalizado, no como en curso. `CANCELADO` no cuenta en ningún
+  subtotal.
+- **Eliminación de cuenta (SPEC-02, F02-QA-03):** confirmar la eliminación
+  bloquea la cuenta (login rechazado) y cierra sus sesiones; la anonimización
+  de los datos personales sigue pendiente de decisión de producto.
+- **SOLICITAR_CORRECCION (SPEC-12):** oculta el contenido igual que
+  `OCULTAR_CONTENIDO` (así lo exige el test de aceptación de SPEC-12); la
+  diferencia queda en la acción registrada y en la auditoría. Un servicio no
+  tiene contenido ocultable: para él, alto riesgo o bloqueo de cuenta.
+- **Vinculación institucional (SPEC-13, UC080):** sigue sin implementación.
+  Con el flag apagado responde 404; con el flag encendido responde 501.
+- **Errores de subida:** un fallo al leer el multipart es 400
+  (`ARCHIVO_INVALIDO`), no 500; un archivo cuyo contenido no corresponde al
+  tipo declarado es 415 (`TIPO_ARCHIVO_NO_PERMITIDO`, verificado por magic bytes).
+
+### Contradicciones entre plan y regla (se sigue la regla)
+
+- **SPEC-11, consolidación de reportes:** el plan pide 409 al consolidar un
+  reporte duplicado y a la vez documenta 201 con el id existente. Se deja el
+  **201** (la regla: la consolidación devuelve el reporte existente; el
+  controlador siempre responde 201) y se documenta aquí la contradicción.
+- **SPEC-04, borrador parcial y migraciones:** el borrador parcial exige
+  relajar los `NOT NULL` de `solicitudes`; se hizo con una migración nueva
+  **V8** (aditiva, no modifica ninguna migración existente) porque ninguna BD
+  real ha aplicado V2 todavía y es el mecanismo estándar de Flyway.
 
 ## Arquitectura
 
@@ -87,5 +127,7 @@ generado: constructores y getters explícitos.
 ```
 
 Incluye tests de máquinas de estados (solicitud, propuesta, servicio),
-política de contraseña, compatibilidad y reputación, y un test de contexto
-con los feature flags apagados.
+política de contraseña, compatibilidad y reputación, un test de contexto
+con los feature flags apagados y `CorreccionesVerificacionTest` (magic bytes,
+lista blanca de datos públicos, preferencias de notificación, duplicado de
+catálogo, recuperación 400/410 y verificación sin límite de documentos).

@@ -33,7 +33,23 @@ public class ServicioController extends BaseController {
 
     private ServicioDtos.ServicioResponse aRespuesta(ServicioContratado s) {
         return new ServicioDtos.ServicioResponse(s.id(), s.solicitudId(), s.propuestaId(), s.clienteId(),
-                s.prestadorId(), s.estado().name(), s.comunicacionHabilitada(), s.fechaContratacion());
+                s.prestadorId(), s.estado().name(), s.comunicacionHabilitada(), s.fechaContratacion(), null, null);
+    }
+
+    /** FR-050: detalle completo con el contenido de la solicitud y la propuesta. */
+    private ServicioDtos.ServicioResponse aRespuestaCompleta(ServicioService.DetalleCompleto d) {
+        ServicioContratado s = d.servicio();
+        var solicitud = d.solicitud();
+        var propuesta = d.propuesta();
+        return new ServicioDtos.ServicioResponse(s.id(), s.solicitudId(), s.propuestaId(), s.clienteId(),
+                s.prestadorId(), s.estado().name(), s.comunicacionHabilitada(), s.fechaContratacion(),
+                new ServicioDtos.SolicitudResumen(solicitud.id(), solicitud.descripcion(),
+                        solicitud.categoriaId(), solicitud.zonaId(),
+                        solicitud.urgencia() == null ? null : solicitud.urgencia().name(),
+                        solicitud.estado().name()),
+                new ServicioDtos.PropuestaResumen(propuesta.id(), propuesta.prestadorId(),
+                        propuesta.disponibilidad(), propuesta.mensaje(), propuesta.estado().name(),
+                        propuesta.fechaCreacion()));
     }
 
     @PostMapping("/propuestas/{id}/aceptar")
@@ -41,7 +57,7 @@ public class ServicioController extends BaseController {
                                      @RequestHeader(value = "Idempotency-Key", required = false) String claveHeader) {
         SecurityUtils.exigirRol("CLIENTE");
         UUID clienteId = SecurityUtils.actual().id();
-        return ejecutarIdempotente(claveHeader, "servicios.aceptar", cuerpo -> clienteId, 200, () -> {
+        return ejecutarIdempotente(claveHeader, "servicios.aceptar." + id, cuerpo -> clienteId, 200, () -> {
             ServicioContratado servicio = service.aceptarPropuesta(id, clienteId);
             return new ServicioDtos.AceptarResponse(servicio.id(), servicio.estado().name());
         });
@@ -49,31 +65,48 @@ public class ServicioController extends BaseController {
 
     @GetMapping("/servicios/{id}")
     public ResponseEntity<ServicioDtos.ServicioResponse> detalle(@PathVariable UUID id) {
-        return ResponseEntity.ok(aRespuesta(service.detalle(id, SecurityUtils.actual().id())));
+        return ResponseEntity.ok(aRespuestaCompleta(service.detalleCompleto(id, SecurityUtils.actual().id())));
     }
 
     @PostMapping("/servicios/{id}/en-ejecucion")
-    public ResponseEntity<ServicioDtos.IdEstadoResponse> enEjecucion(@PathVariable UUID id) {
-        ServicioContratado s = service.enEjecucion(id, SecurityUtils.actual().id());
-        return ResponseEntity.ok(new ServicioDtos.IdEstadoResponse(s.id(), s.estado().name()));
+    public ResponseEntity<?> enEjecucion(@PathVariable UUID id,
+            @RequestHeader(value = "Idempotency-Key", required = false) String claveHeader) {
+        UUID usuarioId = SecurityUtils.actual().id();
+        return ejecutarIdempotente(claveHeader, "servicios." + id + ".en-ejecucion", cuerpo -> usuarioId, 200, () -> {
+            ServicioContratado s = service.enEjecucion(id, usuarioId);
+            return new ServicioDtos.IdEstadoResponse(s.id(), s.estado().name());
+        });
     }
 
     @PostMapping("/servicios/{id}/terminado")
-    public ResponseEntity<ServicioDtos.IdEstadoResponse> terminado(@PathVariable UUID id) {
-        ServicioContratado s = service.terminado(id, SecurityUtils.actual().id());
-        return ResponseEntity.ok(new ServicioDtos.IdEstadoResponse(s.id(), s.estado().name()));
+    public ResponseEntity<?> terminado(@PathVariable UUID id,
+            @RequestHeader(value = "Idempotency-Key", required = false) String claveHeader) {
+        UUID usuarioId = SecurityUtils.actual().id();
+        return ejecutarIdempotente(claveHeader, "servicios." + id + ".terminado", cuerpo -> usuarioId, 200, () -> {
+            ServicioContratado s = service.terminado(id, usuarioId);
+            return new ServicioDtos.IdEstadoResponse(s.id(), s.estado().name());
+        });
     }
 
     @PostMapping("/servicios/{id}/confirmar-finalizacion")
-    public ResponseEntity<ServicioDtos.IdEstadoResponse> confirmarFinalizacion(@PathVariable UUID id) {
-        ServicioContratado s = service.confirmarFinalizacion(id, SecurityUtils.actual().id());
-        return ResponseEntity.ok(new ServicioDtos.IdEstadoResponse(s.id(), s.estado().name()));
+    public ResponseEntity<?> confirmarFinalizacion(@PathVariable UUID id,
+            @RequestHeader(value = "Idempotency-Key", required = false) String claveHeader) {
+        UUID usuarioId = SecurityUtils.actual().id();
+        return ejecutarIdempotente(claveHeader, "servicios." + id + ".confirmar-finalizacion",
+                cuerpo -> usuarioId, 200, () -> {
+            ServicioContratado s = service.confirmarFinalizacion(id, usuarioId);
+            return new ServicioDtos.IdEstadoResponse(s.id(), s.estado().name());
+        });
     }
 
     @PostMapping("/servicios/{id}/cancelar")
-    public ResponseEntity<ServicioDtos.IdEstadoResponse> cancelar(@PathVariable UUID id) {
-        ServicioContratado s = service.cancelar(id, SecurityUtils.actual().id());
-        return ResponseEntity.ok(new ServicioDtos.IdEstadoResponse(s.id(), s.estado().name()));
+    public ResponseEntity<?> cancelar(@PathVariable UUID id,
+            @RequestHeader(value = "Idempotency-Key", required = false) String claveHeader) {
+        UUID usuarioId = SecurityUtils.actual().id();
+        return ejecutarIdempotente(claveHeader, "servicios." + id + ".cancelar", cuerpo -> usuarioId, 200, () -> {
+            ServicioContratado s = service.cancelar(id, usuarioId);
+            return new ServicioDtos.IdEstadoResponse(s.id(), s.estado().name());
+        });
     }
 
     @GetMapping("/servicios/{id}/historial")
@@ -85,11 +118,14 @@ public class ServicioController extends BaseController {
     }
 
     @PostMapping("/servicios/{id}/mensajes")
-    public ResponseEntity<ServicioDtos.MensajeResponse> enviarMensaje(@PathVariable UUID id,
-            @Valid @RequestBody ServicioDtos.MensajeRequest req) {
-        var m = service.enviarMensaje(id, SecurityUtils.actual().id(), req.contenido());
-        return ResponseEntity.status(201)
-                .body(new ServicioDtos.MensajeResponse(m.id(), m.remitenteId(), m.contenido(), m.fechaEnvio()));
+    public ResponseEntity<?> enviarMensaje(@PathVariable UUID id,
+            @Valid @RequestBody ServicioDtos.MensajeRequest req,
+            @RequestHeader(value = "Idempotency-Key", required = false) String claveHeader) {
+        UUID usuarioId = SecurityUtils.actual().id();
+        return ejecutarIdempotente(claveHeader, "servicios." + id + ".mensajes", cuerpo -> usuarioId, 201, () -> {
+            var m = service.enviarMensaje(id, usuarioId, req.contenido());
+            return new ServicioDtos.MensajeResponse(m.id(), m.remitenteId(), m.contenido(), m.fechaEnvio());
+        });
     }
 
     @GetMapping("/servicios/{id}/mensajes")

@@ -1,6 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.confianza.application;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.RolConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.port.ConfianzaConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.port.ResenaModeracionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.model.Calificacion;
@@ -18,6 +19,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.Est
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -39,17 +41,20 @@ public class ConfianzaService implements ConfianzaConsultaPort, ResenaModeracion
     private final SolicitudVerificacionRepository verificaciones;
     private final ServicioLecturaPort servicios;
     private final ReportePort reportes;
+    private final RolConsultaPort roles;
 
     public ConfianzaService(CalificacionRepository calificaciones, ResenaRepository resenas,
                             ReputacionRepository reputaciones,
                             SolicitudVerificacionRepository verificaciones,
-                            ServicioLecturaPort servicios, ReportePort reportes) {
+                            ServicioLecturaPort servicios, ReportePort reportes,
+                            RolConsultaPort roles) {
         this.calificaciones = calificaciones;
         this.resenas = resenas;
         this.reputaciones = reputaciones;
         this.verificaciones = verificaciones;
         this.servicios = servicios;
         this.reportes = reportes;
+        this.roles = roles;
     }
 
     @Transactional
@@ -110,6 +115,9 @@ public class ConfianzaService implements ConfianzaConsultaPort, ResenaModeracion
     @Override
     @Transactional(readOnly = true)
     public ConfianzaInfo confianzaDe(UUID prestadorId) {
+        if (!roles.esPrestador(prestadorId)) {
+            throw new BusinessException.NotFound("PRESTADOR_NO_ENCONTRADO", "Prestador no encontrado.");
+        }
         Reputacion reputacion = reputaciones.porPrestadorId(prestadorId).orElse(null);
         NivelVerificacion nivel = verificaciones.contarAprobadasDePrestador(prestadorId) > 0
                 ? NivelVerificacion.BASICO : NivelVerificacion.SIN_VERIFICAR;
@@ -119,11 +127,30 @@ public class ConfianzaService implements ConfianzaConsultaPort, ResenaModeracion
                 nivel);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ResenaPublica> resenasVisiblesDe(UUID prestadorId) {
+        if (!roles.esPrestador(prestadorId)) {
+            throw new BusinessException.NotFound("PRESTADOR_NO_ENCONTRADO", "Prestador no encontrado.");
+        }
+        return calificaciones.porPrestadorId(prestadorId).stream()
+                .flatMap(calificacion -> resenas.porCalificacionId(calificacion.id()).stream()
+                        .filter(resena -> resena.estadoVisibilidad() == EstadoVisibilidadResena.VISIBLE)
+                        .map(resena -> new ResenaPublica(resena.id(), calificacion.valor(),
+                                resena.texto(), resena.fechaCreacion())))
+                .sorted(Comparator.comparing(ResenaPublica::fechaCreacion).reversed())
+                .toList();
+    }
+
     @Transactional
     public UUID reportarResena(UUID resenaId, UUID reportanteId, String motivo) {
-        resenas.porId(resenaId)
+        Resena resena = resenas.porId(resenaId)
                 .orElseThrow(() -> new BusinessException.NotFound("RESENA_NO_ENCONTRADA",
                         "Reseña no encontrada."));
+        if (resena.estadoVisibilidad() == EstadoVisibilidadResena.OCULTA) {
+            throw new BusinessException.Conflict("RESENA_OCULTA",
+                    "No se puede reportar una reseña oculta.");
+        }
         return reportes.crearReporteResena(resenaId, reportanteId, motivo);
     }
 

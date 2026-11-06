@@ -39,4 +39,14 @@ public final class FormalizacionPersistenceMapper {
         e.setFechaActualizacion(p.fechaActualizacion());
         return e;
     }
+
+    public static EnlaceEntity aEntidad(Enlace enlace) {
+        EnlaceEntity e = new EnlaceEntity();
+        e.setId(enlace.id());
+        e.setPasoId(enlace.pasoId());
+        e.setNombre(enlace.nombre());
+        e.setUrl(enlace.url());
+        e.setEstado(enlace.estado().name());
+        return e;
+    }
 }

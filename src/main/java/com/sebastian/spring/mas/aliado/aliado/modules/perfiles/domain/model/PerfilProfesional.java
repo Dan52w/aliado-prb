@@ -14,6 +14,36 @@ public record PerfilProfesional(UUID id, UUID prestadorId, Map<String, Object> d
                                 List<ExperienciaProfesional> experiencias, List<ServicioPortafolio> portafolio,
                                 List<Disponibilidad> disponibilidades, List<CompromisoAgenda> compromisos) {
 
+    /**
+     * Claves de datosGenerales que pueden exponerse en vistas públicas (SPEC-03).
+     * El SPEC no define los campos de datosGenerales ("a definir por UI"): solo se
+     * permiten claves de presentación. Teléfono, dirección, correo o documento nunca
+     * salen del perfil propio, aunque el prestador los guarde en datosGenerales.
+     */
+    public static final Set<String> DATOS_PUBLICOS = Set.of(
+            "descripcion", "resumen", "experiencia", "anosExperiencia", "aniosExperiencia",
+            "especialidades", "servicios", "habilidades", "formacion", "educacion",
+            "certificaciones", "idiomas", "sitioWeb");
+
+    /** Filtra datosGenerales a las claves públicas; lo demás nunca se expone. */
+    public static Map<String, Object> datosPublicos(Map<String, Object> datos) {
+        if (datos == null) {
+            return Map.of();
+        }
+        Map<String, Object> filtrados = new java.util.LinkedHashMap<>();
+        datos.forEach((clave, valor) -> {
+            if (DATOS_PUBLICOS.contains(clave)) {
+                filtrados.put(clave, valor);
+            }
+        });
+        return Map.copyOf(filtrados);
+    }
+
+    public PerfilProfesional conExposicion(EstadoExposicion nueva) {
+        return new PerfilProfesional(id, prestadorId, datosGenerales, nueva, fechaCreacion,
+                OffsetDateTime.now(), categoriaIds, zonaIds, experiencias, portafolio, disponibilidades, compromisos);
+    }
+
     public PerfilProfesional conCategorias(Set<UUID> nuevas) {
         return new PerfilProfesional(id, prestadorId, datosGenerales, estadoExposicion, fechaCreacion,
                 OffsetDateTime.now(), nuevas, zonaIds, experiencias, portafolio, disponibilidades, compromisos);

@@ -5,6 +5,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.reposi
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.infrastructure.persistence.jpa.DescargaJpaRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.infrastructure.persistence.mapper.PreferenciasPersistenceMapper;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
@@ -27,5 +28,10 @@ public class DescargaPersistenceAdapter implements DescargaRepository {
     public List<DescargaHistorial> porUsuario(UUID usuarioId) {
         return descargas.findByUsuarioIdOrderByFechaGeneracionDesc(usuarioId).stream()
                 .map(PreferenciasPersistenceMapper::aDominio).toList();
+    }
+
+    @Override
+    public Optional<DescargaHistorial> porId(UUID id) {
+        return descargas.findById(id).map(PreferenciasPersistenceMapper::aDominio);
     }
 }

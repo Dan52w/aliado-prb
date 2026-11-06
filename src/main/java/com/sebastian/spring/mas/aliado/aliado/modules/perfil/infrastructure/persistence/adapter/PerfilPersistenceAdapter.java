@@ -35,6 +35,12 @@ public class PerfilPersistenceAdapter implements PerfilRepository, SolicitudElim
     }
 
     @Override
+    public List<Perfil> buscarPorNombre(String texto) {
+        return perfiles.findByNombreContainingIgnoreCase(texto).stream()
+                .map(PerfilPersistenceMapper::aDominio).toList();
+    }
+
+    @Override
     public Optional<SolicitudEliminacion> pendienteDeUsuario(UUID usuarioId) {
         return eliminaciones.findByUsuarioIdAndEstado(usuarioId, "PENDIENTE")
                 .map(PerfilPersistenceMapper::aDominio);

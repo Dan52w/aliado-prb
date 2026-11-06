@@ -138,6 +138,31 @@ public class ReporteService implements ReportePort, ReporteAdminPort {
 
     @Override
     @Transactional(readOnly = true)
+    public List<EvidenciaReporte> evidenciasDe(UUID reporteId) {
+        return evidencias.porReporte(reporteId);
+    }
+
+    /** Descarga de evidencia para el moderador (sin chequeo de propiedad: rol admin). */
+    @Override
+    @Transactional(readOnly = true)
+    public EvidenciaContenido descargarEvidencia(UUID reporteId, UUID evidenciaId) {
+        EvidenciaReporte evidencia = evidencias.porReporte(reporteId).stream()
+                .filter(e -> e.id().equals(evidenciaId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException.NotFound("EVIDENCIA_NO_ENCONTRADA",
+                        "Evidencia no encontrada."));
+        return new EvidenciaContenido(storage.leer(evidencia.archivoKey()), evidencia.tipoContenido());
+    }
+
+    /** Descarga de evidencia para el reportante (con chequeo de propiedad). */
+    @Transactional(readOnly = true)
+    public EvidenciaContenido descargarEvidenciaPropia(UUID reporteId, UUID evidenciaId, UUID reportanteId) {
+        miReporte(reporteId, reportanteId);
+        return descargarEvidencia(reporteId, evidenciaId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Reporte> cola(String estado) {
         return reportes.cola(estado);
     }
@@ -148,6 +173,11 @@ public class ReporteService implements ReportePort, ReporteAdminPort {
         Reporte reporte = reportes.porId(reporteId)
                 .orElseThrow(() -> new BusinessException.NotFound("REPORTE_NO_ENCONTRADO",
                         "Reporte no encontrado."));
+        // La máquina de estados no admite reabrir desde un estado terminal (SPEC-12).
+        if (!reporte.abierto()) {
+            throw new BusinessException.Conflict("REPORTE_CERRADO",
+                    "El reporte ya está cerrado; no se puede reabrir.");
+        }
         Reporte actualizado = new Reporte(reporte.id(), reporte.tipo(), reporte.reportanteId(),
                 reporte.resenaId(), reporte.usuarioObjetivoId(), reporte.servicioId(), reporte.motivo(),
                 EstadoReporte.EN_REVISION, OffsetDateTime.now(), reporte.justificacionResolucion(),
@@ -161,6 +191,11 @@ public class ReporteService implements ReportePort, ReporteAdminPort {
         Reporte reporte = reportes.porId(reporteId)
                 .orElseThrow(() -> new BusinessException.NotFound("REPORTE_NO_ENCONTRADO",
                         "Reporte no encontrado."));
+        // Un reporte en estado terminal no se puede re-resolver (SPEC-12).
+        if (!reporte.abierto()) {
+            throw new BusinessException.Conflict("REPORTE_CERRADO",
+                    "El reporte ya está cerrado; no se puede resolver de nuevo.");
+        }
         EstadoReporte nuevo;
         try {
             nuevo = EstadoReporte.valueOf(resultado);

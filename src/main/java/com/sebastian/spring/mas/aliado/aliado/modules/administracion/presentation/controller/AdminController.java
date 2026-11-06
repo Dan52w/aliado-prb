@@ -1,17 +1,22 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.administracion.presentation.controller;
 
+import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.BloqueoCuentaService;
+import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.BusquedaAdminService;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.ModeracionService;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.ReporteModeracionService;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.RiesgoAuditoriaService;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.presentation.dto.AdminDtos;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoAdminPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.application.port.FormalizacionAdminPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.reportes.domain.model.EvidenciaReporte;
 import com.sebastian.spring.mas.aliado.aliado.modules.reportes.domain.model.Reporte;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,25 +37,37 @@ public class AdminController {
     private final BloqueoCuentaService bloqueos;
     private final ModeracionService moderacion;
     private final RiesgoAuditoriaService riesgo;
+    private final BusquedaAdminService busqueda;
+    private final FormalizacionAdminPort formalizacion;
 
     public AdminController(CatalogoAdminPort catalogo, ReporteModeracionService reportes,
                            BloqueoCuentaService bloqueos, ModeracionService moderacion,
-                           RiesgoAuditoriaService riesgo) {
+                           RiesgoAuditoriaService riesgo, BusquedaAdminService busqueda,
+                           FormalizacionAdminPort formalizacion) {
         this.catalogo = catalogo;
         this.reportes = reportes;
         this.bloqueos = bloqueos;
         this.moderacion = moderacion;
         this.riesgo = riesgo;
+        this.busqueda = busqueda;
+        this.formalizacion = formalizacion;
     }
 
     private AdminDtos.ReporteResponse aReporte(Reporte r) {
+        return aReporte(r, List.of());
+    }
+
+    private AdminDtos.ReporteResponse aReporte(Reporte r, List<EvidenciaReporte> evidencias) {
         return new AdminDtos.ReporteResponse(r.id(), r.tipo().name(), r.objetivoId(), r.motivo(),
-                r.estado().name(), r.fechaCreacion(), r.detalleRevisadoEn());
+                r.estado().name(), r.fechaCreacion(), r.detalleRevisadoEn(),
+                evidencias.stream()
+                        .map(e -> new AdminDtos.EvidenciaResumen(e.id(), e.tipoContenido(), e.fechaCarga()))
+                        .toList());
     }
 
     @PostMapping("/categorias")
     public ResponseEntity<AdminDtos.CategoriaResponse> crearCategoria(@Valid @RequestBody AdminDtos.CategoriaRequest req) {
-        var c = catalogo.crearCategoria(req.nombre());
+        var c = catalogo.crearCategoria(SecurityUtils.actual().id(), req.nombre());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new AdminDtos.CategoriaResponse(c.id(), c.nombre(), c.estado().name()));
     }
@@ -64,19 +81,19 @@ public class AdminController {
     @PutMapping("/categorias/{id}")
     public ResponseEntity<AdminDtos.CategoriaResponse> actualizarCategoria(@PathVariable UUID id,
             @Valid @RequestBody AdminDtos.CategoriaUpdateRequest req) {
-        var c = catalogo.actualizarCategoria(id, req.nombre(), req.estado());
+        var c = catalogo.actualizarCategoria(SecurityUtils.actual().id(), id, req.nombre(), req.estado());
         return ResponseEntity.ok(new AdminDtos.CategoriaResponse(c.id(), c.nombre(), c.estado().name()));
     }
 
     @DeleteMapping("/categorias/{id}")
     public ResponseEntity<Void> desactivarCategoria(@PathVariable UUID id) {
-        catalogo.desactivarCategoria(id);
+        catalogo.desactivarCategoria(SecurityUtils.actual().id(), id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/zonas")
     public ResponseEntity<AdminDtos.ZonaResponse> crearZona(@Valid @RequestBody AdminDtos.ZonaRequest req) {
-        var z = catalogo.crearZona(req.nombre(), req.coberturaGeografica());
+        var z = catalogo.crearZona(SecurityUtils.actual().id(), req.nombre(), req.coberturaGeografica());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new AdminDtos.ZonaResponse(z.id(), z.nombre(), z.coberturaGeografica(), z.estado().name()));
     }
@@ -91,13 +108,13 @@ public class AdminController {
     @PutMapping("/zonas/{id}")
     public ResponseEntity<AdminDtos.ZonaResponse> actualizarZona(@PathVariable UUID id,
             @Valid @RequestBody AdminDtos.ZonaUpdateRequest req) {
-        var z = catalogo.actualizarZona(id, req.nombre(), req.coberturaGeografica(), req.estado());
+        var z = catalogo.actualizarZona(SecurityUtils.actual().id(), id, req.nombre(), req.coberturaGeografica(), req.estado());
         return ResponseEntity.ok(new AdminDtos.ZonaResponse(z.id(), z.nombre(), z.coberturaGeografica(), z.estado().name()));
     }
 
     @DeleteMapping("/zonas/{id}")
     public ResponseEntity<Void> desactivarZona(@PathVariable UUID id) {
-        catalogo.desactivarZona(id);
+        catalogo.desactivarZona(SecurityUtils.actual().id(), id);
         return ResponseEntity.noContent().build();
     }
 
@@ -109,7 +126,16 @@ public class AdminController {
 
     @GetMapping("/reportes/{id}")
     public ResponseEntity<AdminDtos.ReporteResponse> detalleReporte(@PathVariable UUID id) {
-        return ResponseEntity.ok(aReporte(reportes.detalleReporte(id, SecurityUtils.actual().id())));
+        Reporte reporte = reportes.detalleReporte(id, SecurityUtils.actual().id());
+        return ResponseEntity.ok(aReporte(reporte, reportes.evidenciasDe(id)));
+    }
+
+    @GetMapping("/reportes/{id}/evidencias/{evidenciaId}")
+    public ResponseEntity<byte[]> descargarEvidencia(@PathVariable UUID id, @PathVariable UUID evidenciaId) {
+        var contenido = reportes.descargarEvidencia(id, evidenciaId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contenido.tipoContenido()))
+                .body(contenido.contenido());
     }
 
     @PostMapping("/reportes/{id}/resolver")
@@ -158,7 +184,30 @@ public class AdminController {
     @PostMapping("/verificaciones/{id}/resolver")
     public ResponseEntity<Void> resolverVerificacion(@PathVariable UUID id,
             @Valid @RequestBody AdminDtos.ResolverVerificacionRequest req) {
-        moderacion.resolverVerificacion(id, SecurityUtils.actual().id(), req.estado());
+        moderacion.resolverVerificacion(id, SecurityUtils.actual().id(), req.estado(), req.justificacion());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/busqueda")
+    public ResponseEntity<AdminDtos.BusquedaResponse> busqueda(@RequestParam String q) {
+        if (q == null || q.isBlank()) {
+            throw new BusinessException.BadRequest("BUSQUEDA_REQUERIDA",
+                    "El parámetro q es obligatorio para buscar.");
+        }
+        var resultado = busqueda.buscar(q.trim());
+        return ResponseEntity.ok(new AdminDtos.BusquedaResponse(
+                resultado.usuarios().stream()
+                        .map(u -> new AdminDtos.UsuarioResumen(u.id(), u.email(), u.rol()))
+                        .toList(),
+                resultado.solicitudes().stream()
+                        .map(s -> new AdminDtos.SolicitudResumen(s.id(), s.descripcion(), s.estado()))
+                        .toList()));
+    }
+
+    @PutMapping("/formalizacion/enlaces/{id}")
+    public ResponseEntity<AdminDtos.EnlaceResponse> actualizarEnlace(@PathVariable UUID id,
+            @RequestBody AdminDtos.ActualizarEnlaceRequest req) {
+        var e = formalizacion.actualizarEnlace(id, req.nombre(), req.url(), req.estado());
+        return ResponseEntity.ok(new AdminDtos.EnlaceResponse(e.id(), e.nombre(), e.url(), e.estado().name()));
     }
 }

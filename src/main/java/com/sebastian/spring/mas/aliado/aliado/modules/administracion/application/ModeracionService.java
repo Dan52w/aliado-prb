@@ -7,6 +7,8 @@ import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.mode
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.repository.AccionModeracionRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.port.ResenaModeracionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.port.VerificacionAdminPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfil.application.port.PerfilModeracionPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.port.PerfilProfesionalModeracionPort;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -23,13 +25,19 @@ public class ModeracionService {
     private final ResenaModeracionPort resenas;
     private final VerificacionAdminPort verificaciones;
     private final AuditoriaService auditoriaService;
+    private final PerfilProfesionalModeracionPort perfilesProfesionales;
+    private final PerfilModeracionPort perfiles;
 
     public ModeracionService(AccionModeracionRepository acciones, ResenaModeracionPort resenas,
-                             VerificacionAdminPort verificaciones, AuditoriaService auditoriaService) {
+                             VerificacionAdminPort verificaciones, AuditoriaService auditoriaService,
+                             PerfilProfesionalModeracionPort perfilesProfesionales,
+                             PerfilModeracionPort perfiles) {
         this.acciones = acciones;
         this.resenas = resenas;
         this.verificaciones = verificaciones;
         this.auditoriaService = auditoriaService;
+        this.perfilesProfesionales = perfilesProfesionales;
+        this.perfiles = perfiles;
     }
 
     @Transactional
@@ -49,19 +57,33 @@ public class ModeracionService {
         } catch (IllegalArgumentException | NullPointerException ex) {
             throw new BusinessException.BadRequest("OBJETIVO_INVALIDO", "Objetivo de moderación inválido.");
         }
+        // FR-074: moderar contenido puntual sin bloquear la cuenta. El efecto es
+        // observable: el contenido deja de mostrarse públicamente. SOLICITAR_CORRECCION
+        // oculta igual que OCULTAR_CONTENIDO (así lo exige el test de aceptación de
+        // SPEC-12); la diferencia queda en la acción registrada y en la auditoría.
+        // Un servicio no tiene contenido ocultable: para él, alto riesgo o bloqueo.
+        if (tipoObjetivo == TipoObjetivoModeracion.SERVICIO) {
+            throw new BusinessException.BadRequest("ACCION_NO_APLICABLE",
+                    "Un servicio no tiene contenido que ocultar; usa alto riesgo o bloqueo de cuenta.");
+        }
         acciones.guardar(new AccionModeracion(UUID.randomUUID(), administradorId, tipoAccion, tipoObjetivo,
                 objetivoId, motivo.trim(), OffsetDateTime.now()));
-        if (tipoAccion == TipoAccionModeracion.OCULTAR_CONTENIDO
-                && tipoObjetivo == TipoObjetivoModeracion.RESENA) {
-            resenas.ocultarResena(objetivoId);
+        switch (tipoObjetivo) {
+            case RESENA -> resenas.ocultarResena(objetivoId);
+            case PERFIL -> perfilesProfesionales.ocultarPerfil(objetivoId);
+            case USUARIO -> perfiles.ocultarPerfil(objetivoId);
+            case SERVICIO -> throw new BusinessException.BadRequest("ACCION_NO_APLICABLE",
+                    "Un servicio no tiene contenido que ocultar.");
         }
         auditoriaService.registrar(administradorId, "CONTENT_MODERATED", tipoObjetivo.name(), objetivoId,
                 tipoAccion.name());
     }
 
     @Transactional
-    public void resolverVerificacion(UUID solicitudId, UUID administradorId, String estado) {
+    public void resolverVerificacion(UUID solicitudId, UUID administradorId, String estado, String justificacion) {
         verificaciones.resolver(solicitudId, estado, administradorId);
-        auditoriaService.registrar(administradorId, "VERIFICATION_RESOLVED", "VERIFICACION", solicitudId, estado);
+        String detalle = justificacion == null || justificacion.isBlank()
+                ? estado : estado + ": " + justificacion.trim();
+        auditoriaService.registrar(administradorId, "VERIFICATION_RESOLVED", "VERIFICACION", solicitudId, detalle);
     }
 }

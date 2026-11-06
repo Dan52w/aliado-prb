@@ -17,6 +17,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.repository.Usu
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -121,10 +122,14 @@ public class AuthService implements UsuarioConsultaPort, RolConsultaPort, Cuenta
     @Transactional
     public void confirmarRecuperacion(String codigo, String nuevaPassword) {
         OffsetDateTime ahora = OffsetDateTime.now();
+        // Plan SPEC-01: 400 si el código no existe, 410 si fue usado o expiró.
         TokenRecuperacion token = tokens.porCodigoHash(SesionService.hashToken(codigo))
-                .filter(t -> t.vigente(ahora))
-                .orElseThrow(() -> new BusinessException.Gone("TOKEN_INVALIDO",
-                        "El código es inválido, ya fue usado o expiró."));
+                .orElseThrow(() -> new BusinessException.BadRequest("TOKEN_INVALIDO",
+                        "El código es inválido."));
+        if (!token.vigente(ahora)) {
+            throw new BusinessException.Gone("TOKEN_EXPIRADO",
+                    "El código ya fue usado o expiró.");
+        }
         try {
             Usuario.validarPassword(nuevaPassword);
         } catch (IllegalArgumentException ex) {
@@ -187,6 +192,12 @@ public class AuthService implements UsuarioConsultaPort, RolConsultaPort, Cuenta
     @Override
     public boolean existe(UUID id) {
         return usuarios.porId(id).isPresent();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Usuario> buscarPorTexto(String texto) {
+        return usuarios.buscarPorTexto(texto);
     }
 
     @Override

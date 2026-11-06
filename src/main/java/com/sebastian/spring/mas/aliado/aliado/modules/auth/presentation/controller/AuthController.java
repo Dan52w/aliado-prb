@@ -55,9 +55,14 @@ public class AuthController extends BaseController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request) {
+        // Plan SPEC-01: 401 sin sesión activa (no 204 siempre).
         String auth = request.getHeader("Authorization");
-        if (auth != null && auth.startsWith("Bearer ")) {
-            sesionService.cerrarSesion(auth.substring("Bearer ".length()).trim());
+        if (auth == null || !auth.startsWith("Bearer ")) {
+            throw new BusinessException.Unauthorized("SESION_INVALIDA", "No hay sesión activa.");
+        }
+        boolean cerrada = sesionService.cerrarSesion(auth.substring("Bearer ".length()).trim());
+        if (!cerrada) {
+            throw new BusinessException.Unauthorized("SESION_INVALIDA", "La sesión no existe o ya fue cerrada.");
         }
         return ResponseEntity.noContent().build();
     }

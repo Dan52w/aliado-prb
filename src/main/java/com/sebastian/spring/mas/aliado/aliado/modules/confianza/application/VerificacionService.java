@@ -40,20 +40,26 @@ public class VerificacionService implements VerificacionAdminPort {
             throw new BusinessException.Conflict("VERIFICACION_PENDIENTE",
                     "Ya tienes una solicitud de verificación pendiente.");
         }
+        // Tope de nivel (SPEC-10): AMPLIADO es inalcanzable y BÁSICO es el máximo real;
+        // con una verificación ya aprobada no se admite otra solicitud.
+        if (verificaciones.contarAprobadasDePrestador(prestadorId) > 0) {
+            throw new BusinessException.Conflict("NIVEL_MAXIMO_ALCANZADO",
+                    "Ya alcanzaste el nivel máximo de verificación (BÁSICO).");
+        }
         if (archivos == null || archivos.isEmpty()) {
             throw new BusinessException.BadRequest("DOCUMENTO_REQUERIDO",
                     "La verificación requiere al menos un documento.");
         }
-        if (archivos.size() > 3) {
-            throw new BusinessException.BadRequest("LIMITE_DOCUMENTOS",
-                    "La verificación admite como máximo 3 documentos.");
+        // Sin límite inventado de documentos: se validan TODOS antes de persistir nada,
+        // para no dejar solicitudes huérfanas ni archivos sin solicitud si uno falla.
+        for (ArchivoSubido archivo : archivos) {
+            ArchivoValidacion.validar(archivo.nombreOriginal(), archivo.tipoContenido(), archivo.contenido(),
+                    ArchivoValidacion.DOCUMENTOS);
         }
         OffsetDateTime ahora = OffsetDateTime.now();
         SolicitudVerificacion solicitud = verificaciones.guardar(new SolicitudVerificacion(
                 UUID.randomUUID(), prestadorId, EstadoVerificacion.PENDIENTE, ahora, null));
         for (ArchivoSubido archivo : archivos) {
-            ArchivoValidacion.validar(archivo.nombreOriginal(), archivo.tipoContenido(), archivo.contenido(),
-                    ArchivoValidacion.DOCUMENTOS);
             String clave = storage.guardar(archivo.nombreOriginal(), archivo.tipoContenido(), archivo.contenido());
             documentos.guardar(new DocumentoVerificacion(UUID.randomUUID(), solicitud.id(), clave, ahora));
         }

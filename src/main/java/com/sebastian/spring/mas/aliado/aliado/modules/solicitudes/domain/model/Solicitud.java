@@ -42,4 +42,18 @@ public record Solicitud(UUID id, UUID clienteId, UUID categoriaId, UUID zonaId, 
         return new Solicitud(id, clienteId, categoriaId, zonaId, descripcion, urgencia, estado,
                 fechaCreacion, fechaActualizacion, version, List.copyOf(nuevas), historial);
     }
+
+    public Solicitud conFotoReemplazada(FotoSolicitud foto) {
+        var nuevas = fotos.stream()
+                .map(f -> f.id().equals(foto.id()) ? foto : f)
+                .toList();
+        return new Solicitud(id, clienteId, categoriaId, zonaId, descripcion, urgencia, estado,
+                fechaCreacion, fechaActualizacion, version, nuevas, historial);
+    }
+
+    public Solicitud sinFoto(UUID fotoId) {
+        var nuevas = fotos.stream().filter(f -> !f.id().equals(fotoId)).toList();
+        return new Solicitud(id, clienteId, categoriaId, zonaId, descripcion, urgencia, estado,
+                fechaCreacion, fechaActualizacion, version, nuevas, historial);
+    }
 }

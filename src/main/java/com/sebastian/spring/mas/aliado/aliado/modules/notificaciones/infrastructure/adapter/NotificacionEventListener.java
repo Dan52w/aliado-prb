@@ -47,7 +47,8 @@ public class NotificacionEventListener {
         // La contraparte es quien no ejecutó la transición.
         var destinatario = evento.actorId().equals(evento.clienteId())
                 ? evento.prestadorId() : evento.clienteId();
-        notificaciones.registrar(TipoNotificacion.CAMBIO_ESTADO_SERVICIO, evento.servicioId(), destinatario, 1,
+        notificaciones.registrar(TipoNotificacion.CAMBIO_ESTADO_SERVICIO, evento.servicioId(), destinatario,
+                evento.version(),
                 "El servicio cambió de estado a " + evento.estadoNuevo() + ".", Canal.PUSH);
     }
 }

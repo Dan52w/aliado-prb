@@ -7,13 +7,13 @@ import java.util.UUID;
 
 /** Administración del catálogo (SPEC-12): categorías y zonas administrables. */
 public interface CatalogoAdminPort {
-    Categoria crearCategoria(String nombre);
-    Categoria actualizarCategoria(UUID id, String nombre, String estado);
-    void desactivarCategoria(UUID id);
+    Categoria crearCategoria(UUID administradorId, String nombre);
+    Categoria actualizarCategoria(UUID administradorId, UUID id, String nombre, String estado);
+    void desactivarCategoria(UUID administradorId, UUID id);
     List<Categoria> listarCategorias();
 
-    Zona crearZona(String nombre, String coberturaGeografica);
-    Zona actualizarZona(UUID id, String nombre, String coberturaGeografica, String estado);
-    void desactivarZona(UUID id);
+    Zona crearZona(UUID administradorId, String nombre, String coberturaGeografica);
+    Zona actualizarZona(UUID administradorId, UUID id, String nombre, String coberturaGeografica, String estado);
+    void desactivarZona(UUID administradorId, UUID id);
     List<Zona> listarZonas();
 }

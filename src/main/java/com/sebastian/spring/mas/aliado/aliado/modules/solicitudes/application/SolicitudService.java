@@ -45,17 +45,8 @@ public class SolicitudService implements SolicitudConsultaPort {
     @Transactional
     public Solicitud crear(UUID clienteId, UUID categoriaId, String descripcion, UUID zonaId,
                            String urgenciaTexto, String estadoDeseado) {
-        if (descripcion == null || descripcion.isBlank()) {
-            throw new BusinessException.BadRequest("DESCRIPCION_REQUERIDA", "La descripción es obligatoria.");
-        }
-        var categoria = catalogo.categoriaPorId(categoriaId)
-                .filter(c -> c.estado() == EstadoCatalogo.ACTIVO)
-                .orElseThrow(() -> new BusinessException.BadRequest("CATEGORIA_INVALIDA",
-                        "La categoría no existe o no está activa."));
-        var zona = catalogo.zonaPorId(zonaId)
-                .filter(z -> z.estado() == EstadoCatalogo.ACTIVO)
-                .orElseThrow(() -> new BusinessException.BadRequest("ZONA_INVALIDA",
-                        "La zona no existe o no está activa."));
+        // El estado se resuelve primero: el borrador es parcial (SPEC-04) y la
+        // publicación exige todo. V8 relajó los NOT NULL de categoria/zona/descripción.
         EstadoSolicitud estado = EstadoSolicitud.PUBLICADA;
         if (estadoDeseado != null && !estadoDeseado.isBlank()) {
             try {
@@ -68,6 +59,34 @@ public class SolicitudService implements SolicitudConsultaPort {
                 throw new BusinessException.BadRequest("ESTADO_INVALIDO",
                         "estadoDeseado debe ser BORRADOR o PUBLICADA.");
             }
+        }
+        boolean borrador = estado == EstadoSolicitud.BORRADOR;
+        String descripcionLimpia = descripcion == null ? null : descripcion.trim();
+        if (!borrador && (descripcionLimpia == null || descripcionLimpia.isBlank())) {
+            throw new BusinessException.BadRequest("DESCRIPCION_REQUERIDA", "La descripción es obligatoria.");
+        }
+        if (borrador && descripcionLimpia != null && descripcionLimpia.isBlank()) {
+            descripcionLimpia = null;
+        }
+        UUID categoriaValida = null;
+        if (categoriaId != null) {
+            categoriaValida = catalogo.categoriaPorId(categoriaId)
+                    .filter(c -> c.estado() == EstadoCatalogo.ACTIVO)
+                    .orElseThrow(() -> new BusinessException.BadRequest("CATEGORIA_INVALIDA",
+                            "La categoría no existe o no está activa.")).id();
+        } else if (!borrador) {
+            throw new BusinessException.BadRequest("CATEGORIA_INVALIDA",
+                    "La categoría es obligatoria para publicar la solicitud.");
+        }
+        UUID zonaValida = null;
+        if (zonaId != null) {
+            zonaValida = catalogo.zonaPorId(zonaId)
+                    .filter(z -> z.estado() == EstadoCatalogo.ACTIVO)
+                    .orElseThrow(() -> new BusinessException.BadRequest("ZONA_INVALIDA",
+                            "La zona no existe o no está activa.")).id();
+        } else if (!borrador) {
+            throw new BusinessException.BadRequest("ZONA_INVALIDA",
+                    "La zona es obligatoria para publicar la solicitud.");
         }
         Urgencia urgencia = null;
         if (urgenciaTexto != null && !urgenciaTexto.isBlank()) {
@@ -84,13 +103,13 @@ public class SolicitudService implements SolicitudConsultaPort {
         }
         OffsetDateTime ahora = OffsetDateTime.now();
         UUID solicitudId = UUID.randomUUID();
-        Solicitud solicitud = new Solicitud(solicitudId, clienteId, categoria.id(), zona.id(),
-                descripcion.trim(), urgencia, estado, ahora, ahora, 0, List.of(),
+        Solicitud solicitud = new Solicitud(solicitudId, clienteId, categoriaValida, zonaValida,
+                descripcionLimpia, urgencia, estado, ahora, ahora, 0, List.of(),
                 List.of(new HistorialEstadoSolicitud(UUID.randomUUID(), solicitudId, null, estado, ahora)));
         Solicitud guardada = solicitudes.guardar(solicitud);
         if (estado == EstadoSolicitud.PUBLICADA) {
-            eventos.publicar(new Eventos.SolicitudPublicada(guardada.id(), clienteId, categoria.id(),
-                    zona.id(), urgencia == null ? null : urgencia.name(), ahora));
+            eventos.publicar(new Eventos.SolicitudPublicada(guardada.id(), clienteId, categoriaValida,
+                    zonaValida, urgencia == null ? null : urgencia.name(), ahora));
         }
         return guardada;
     }
@@ -135,6 +154,21 @@ public class SolicitudService implements SolicitudConsultaPort {
         if (actual.estado() != EstadoSolicitud.BORRADOR) {
             throw new BusinessException.Conflict("TRANSICION_INVALIDA", "Solo un borrador puede publicarse.");
         }
+        // SPEC-12: publicar un borrador revalida que esté completo y que categoría y
+        // zona sigan activas en ese momento (pudieron desactivarse tras crear el borrador).
+        if (actual.descripcion() == null || actual.descripcion().isBlank()
+                || actual.categoriaId() == null || actual.zonaId() == null) {
+            throw new BusinessException.BadRequest("BORRADOR_INCOMPLETO",
+                    "Para publicar faltan la descripción, la categoría o la zona.");
+        }
+        catalogo.categoriaPorId(actual.categoriaId())
+                .filter(c -> c.estado() == EstadoCatalogo.ACTIVO)
+                .orElseThrow(() -> new BusinessException.BadRequest("CATEGORIA_INVALIDA",
+                        "La categoría no existe o no está activa."));
+        catalogo.zonaPorId(actual.zonaId())
+                .filter(z -> z.estado() == EstadoCatalogo.ACTIVO)
+                .orElseThrow(() -> new BusinessException.BadRequest("ZONA_INVALIDA",
+                        "La zona no existe o no está activa."));
         if (actual.urgencia() == null) {
             throw new BusinessException.BadRequest("URGENCIA_REQUERIDA",
                     "La urgencia es obligatoria para publicar la solicitud.");
@@ -179,6 +213,54 @@ public class SolicitudService implements SolicitudConsultaPort {
         return foto;
     }
 
+    /** Contenido de una foto: el cliente dueño, o cualquier autenticado si es PUBLICADA. */
+    @Transactional(readOnly = true)
+    public byte[] descargarFoto(UUID solicitudId, UUID fotoId, UUID usuarioId) {
+        Solicitud solicitud = solicitudes.porId(solicitudId)
+                .orElseThrow(() -> new BusinessException.NotFound("SOLICITUD_NO_ENCONTRADA",
+                        "Solicitud no encontrada."));
+        boolean dueno = solicitud.clienteId().equals(usuarioId);
+        boolean publica = solicitud.estado() == EstadoSolicitud.PUBLICADA;
+        if (!dueno && !publica) {
+            throw new BusinessException.NotFound("SOLICITUD_NO_ENCONTRADA", "Solicitud no encontrada.");
+        }
+        FotoSolicitud foto = solicitud.fotos().stream()
+                .filter(f -> f.id().equals(fotoId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException.NotFound("FOTO_NO_ENCONTRADA",
+                        "Foto no encontrada."));
+        return storage.leer(foto.archivoKey());
+    }
+
+    @Transactional
+    public FotoSolicitud reemplazarFoto(UUID solicitudId, UUID fotoId, UUID clienteId, String nombreOriginal,
+                                        String tipoContenido, byte[] contenido) {
+        Solicitud actual = propiaAbierta(solicitudId, clienteId);
+        FotoSolicitud anterior = actual.fotos().stream()
+                .filter(f -> f.id().equals(fotoId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException.NotFound("FOTO_NO_ENCONTRADA",
+                        "Foto no encontrada."));
+        ArchivoValidacion.validar(nombreOriginal, tipoContenido, contenido, ArchivoValidacion.IMAGENES);
+        String claveNueva = storage.guardar(nombreOriginal, tipoContenido, contenido);
+        FotoSolicitud reemplazada = new FotoSolicitud(anterior.id(), solicitudId, claveNueva, anterior.orden());
+        solicitudes.guardar(actual.conFotoReemplazada(reemplazada));
+        storage.eliminar(anterior.archivoKey());
+        return reemplazada;
+    }
+
+    @Transactional
+    public void eliminarFoto(UUID solicitudId, UUID fotoId, UUID clienteId) {
+        Solicitud actual = propiaAbierta(solicitudId, clienteId);
+        FotoSolicitud foto = actual.fotos().stream()
+                .filter(f -> f.id().equals(fotoId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException.NotFound("FOTO_NO_ENCONTRADA",
+                        "Foto no encontrada."));
+        solicitudes.guardar(actual.sinFoto(fotoId));
+        storage.eliminar(foto.archivoKey());
+    }
+
     private Solicitud propiaAbierta(UUID solicitudId, UUID clienteId) {
         Solicitud solicitud = solicitudes.porId(solicitudId)
                 .orElseThrow(() -> new BusinessException.NotFound("SOLICITUD_NO_ENCONTRADA",
@@ -196,6 +278,12 @@ public class SolicitudService implements SolicitudConsultaPort {
     @Override
     public Optional<Solicitud> porId(UUID id) {
         return solicitudes.porId(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Solicitud> buscarPorTexto(String texto) {
+        return solicitudes.buscarPorTexto(texto);
     }
 
     @Override

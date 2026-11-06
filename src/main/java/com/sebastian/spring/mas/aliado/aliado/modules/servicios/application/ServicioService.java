@@ -15,6 +15,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.Ser
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.repository.ServicioRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.application.port.SolicitudConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.domain.model.EstadoSolicitud;
+import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.domain.model.Solicitud;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -84,6 +85,21 @@ public class ServicioService implements ServicioConsultaPort, ServicioLecturaPor
         return participante(servicioId, usuarioId);
     }
 
+    /** FR-050: el detalle del servicio incluye el contenido de la solicitud y la propuesta. */
+    public record DetalleCompleto(ServicioContratado servicio, Solicitud solicitud, Propuesta propuesta) {}
+
+    @Transactional(readOnly = true)
+    public DetalleCompleto detalleCompleto(UUID servicioId, UUID usuarioId) {
+        ServicioContratado servicio = participante(servicioId, usuarioId);
+        Solicitud solicitud = solicitudes.porId(servicio.solicitudId())
+                .orElseThrow(() -> new BusinessException.NotFound("SOLICITUD_NO_ENCONTRADA",
+                        "Solicitud no encontrada."));
+        Propuesta propuesta = propuestas.porId(servicio.propuestaId())
+                .orElseThrow(() -> new BusinessException.NotFound("PROPUESTA_NO_ENCONTRADA",
+                        "Propuesta no encontrada."));
+        return new DetalleCompleto(servicio, solicitud, propuesta);
+    }
+
     @Transactional
     public ServicioContratado enEjecucion(UUID servicioId, UUID prestadorId) {
         ServicioContratado servicio = participante(servicioId, prestadorId);
@@ -122,8 +138,12 @@ public class ServicioService implements ServicioConsultaPort, ServicioLecturaPor
         OffsetDateTime ahora = OffsetDateTime.now();
         EstadoServicio anterior = servicio.estado();
         ServicioContratado actualizado = servicios.guardar(servicio.transitarA(nuevo, actorId, ahora));
+        // La versión del evento distingue cada transición: cada estado se entra una sola
+        // vez, así que el ordinal del estado nuevo es único por servicio (SPEC-09). Sin
+        // ella, la notificación de TERMINADO se descartaba como duplicada de EN_EJECUCION.
         eventos.publicar(new Eventos.ServicioEstadoCambiado(actualizado.id(), actualizado.clienteId(),
-                actualizado.prestadorId(), anterior.name(), nuevo.name(), actorId, ahora));
+                actualizado.prestadorId(), anterior.name(), nuevo.name(), actorId, ahora,
+                nuevo.ordinal() + 1));
         return actualizado;
     }
 

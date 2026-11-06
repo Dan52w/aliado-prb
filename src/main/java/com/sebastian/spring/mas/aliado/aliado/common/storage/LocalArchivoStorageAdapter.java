@@ -39,8 +39,14 @@ public class LocalArchivoStorageAdapter implements ArchivoStorageService {
 
     @Override
     public byte[] leer(String clave) {
+        // La clave es opaca y la genera el sistema, pero nunca se confía en ella:
+        // la ruta resuelta debe permanecer bajo la raíz de almacenamiento.
+        Path objetivo = raiz.resolve(clave).normalize();
+        if (!objetivo.startsWith(raiz)) {
+            throw new BusinessException.NotFound("ARCHIVO_NO_ENCONTRADO", "El archivo no existe.");
+        }
         try {
-            return Files.readAllBytes(raiz.resolve(clave).normalize());
+            return Files.readAllBytes(objetivo);
         } catch (IOException ex) {
             throw new BusinessException.NotFound("ARCHIVO_NO_ENCONTRADO", "El archivo no existe.");
         }

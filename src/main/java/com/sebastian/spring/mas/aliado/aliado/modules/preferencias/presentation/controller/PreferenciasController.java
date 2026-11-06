@@ -7,9 +7,13 @@ import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.model.
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.presentation.dto.PreferenciasDtos;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -52,6 +56,11 @@ public class PreferenciasController {
     @GetMapping("/historial")
     public ResponseEntity<List<PreferenciasDtos.ServicioResumen>> historial(
             @RequestParam(defaultValue = "0") int pagina, @RequestParam(defaultValue = "20") int tamano) {
+        // Tope superior (SPEC-14): sin tope, tamano=100000 pedía todo el historial de una vez.
+        if (pagina < 0 || tamano < 1 || tamano > 100) {
+            throw new BusinessException.BadRequest("PAGINACION_INVALIDA",
+                    "pagina debe ser >= 0 y tamano debe estar entre 1 y 100.");
+        }
         return ResponseEntity.ok(service.historial(SecurityUtils.actual().id(), pagina, tamano).stream()
                 .map(s -> new PreferenciasDtos.ServicioResumen(s.id(), s.estado().name(), s.fechaContratacion()))
                 .toList());
@@ -62,6 +71,15 @@ public class PreferenciasController {
         var d = service.exportarHistorial(SecurityUtils.actual().id());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new PreferenciasDtos.DescargaResponse(d.id(), d.archivoKey(), d.estado()));
+    }
+
+    @GetMapping("/historial/exportaciones/{id}")
+    public ResponseEntity<byte[]> descargarExportacion(@PathVariable UUID id) {
+        byte[] contenido = service.descargarExportacion(SecurityUtils.actual().id(), id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"historial.csv\"")
+                .body(contenido);
     }
 
     @GetMapping("/prestadores/mis-indicadores")

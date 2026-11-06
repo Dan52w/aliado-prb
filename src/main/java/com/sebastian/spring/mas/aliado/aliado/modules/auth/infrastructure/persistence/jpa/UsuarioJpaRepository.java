@@ -1,6 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.auth.infrastructure.persistence.jpa;
 
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.infrastructure.persistence.entity.UsuarioEntity;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,4 +13,7 @@ public interface UsuarioJpaRepository extends JpaRepository<UsuarioEntity, UUID>
 
     @Query("select count(u) > 0 from UsuarioEntity u where lower(u.email) = lower(:email)")
     boolean existsByEmailIgnoreCase(String email);
+
+    @Query("select u from UsuarioEntity u where lower(u.email) like lower(concat('%', :texto, '%'))")
+    List<UsuarioEntity> buscarPorEmail(String texto);
 }

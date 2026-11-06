@@ -23,8 +23,8 @@ public class NotificacionController {
     }
 
     private NotificacionDtos.NotificacionResponse aRespuesta(NotificacionConsultaPort.NotificacionConsulta n) {
-        return new NotificacionDtos.NotificacionResponse(n.id(), n.tipo().name(), n.servicioId(), n.detalle(),
-                n.estadoEntrega().name(), n.fechaGeneracion());
+        return new NotificacionDtos.NotificacionResponse(n.id(), n.tipo().name(), n.servicioId(), n.solicitudId(),
+                n.detalle(), n.estadoEntrega().name(), n.fechaGeneracion());
     }
 
     @GetMapping

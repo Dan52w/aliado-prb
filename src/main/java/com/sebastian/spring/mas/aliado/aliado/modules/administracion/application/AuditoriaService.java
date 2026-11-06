@@ -1,5 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.administracion.application;
 
+import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.port.AuditoriaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.model.Auditoria;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.repository.AuditoriaRepository;
 import java.time.OffsetDateTime;
@@ -9,13 +10,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Escritura de auditoría append-only (RNF-005). El detalle nunca lleva datos personales. */
 @Service
-public class AuditoriaService {
+public class AuditoriaService implements AuditoriaPort {
+
     private final AuditoriaRepository auditoria;
 
     public AuditoriaService(AuditoriaRepository auditoria) {
         this.auditoria = auditoria;
     }
 
+    @Override
     @Transactional
     public void registrar(UUID administradorId, String accion, String objetivoTipo, UUID objetivoId,
                           String detalle) {

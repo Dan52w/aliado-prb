@@ -1,5 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.reportes.presentation.controller;
 
+import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
 import com.sebastian.spring.mas.aliado.aliado.modules.reportes.application.ReporteService;
 import com.sebastian.spring.mas.aliado.aliado.modules.reportes.domain.model.Reporte;
@@ -53,11 +54,25 @@ public class ReporteController {
 
     @PostMapping(value = "/reportes/{id}/evidencias", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ReporteDtos.EvidenciaResponse> agregarEvidencia(@PathVariable UUID id,
-            @RequestPart("archivo") MultipartFile archivo) throws IOException {
+            @RequestPart("archivo") MultipartFile archivo) {
+        byte[] contenido;
+        try {
+            contenido = archivo.getBytes();
+        } catch (IOException ex) {
+            throw new BusinessException.BadRequest("ARCHIVO_INVALIDO", "No se pudo leer el archivo enviado.");
+        }
         var evidencia = service.agregarEvidencia(id, SecurityUtils.actual().id(),
-                archivo.getOriginalFilename(), archivo.getContentType(), archivo.getBytes());
+                archivo.getOriginalFilename(), archivo.getContentType(), contenido);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 new ReporteDtos.EvidenciaResponse(evidencia.id(), evidencia.archivoKey(), evidencia.tipoContenido()));
+    }
+
+    @GetMapping("/reportes/{id}/evidencias/{evidenciaId}")
+    public ResponseEntity<byte[]> descargarEvidencia(@PathVariable UUID id, @PathVariable UUID evidenciaId) {
+        var contenido = service.descargarEvidenciaPropia(id, evidenciaId, SecurityUtils.actual().id());
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contenido.tipoContenido()))
+                .body(contenido.contenido());
     }
 
     @GetMapping("/reportes/mios/{id}")

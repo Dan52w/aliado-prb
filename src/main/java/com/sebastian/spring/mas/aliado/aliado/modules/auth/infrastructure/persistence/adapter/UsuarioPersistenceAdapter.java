@@ -4,6 +4,8 @@ import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.model.Usuario;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.repository.UsuarioRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.infrastructure.persistence.jpa.UsuarioJpaRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.infrastructure.persistence.mapper.AuthPersistenceMapper;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -34,5 +36,21 @@ public class UsuarioPersistenceAdapter implements UsuarioRepository {
     @Override
     public Usuario guardar(Usuario usuario) {
         return AuthPersistenceMapper.aDominio(jpa.save(AuthPersistenceMapper.aEntidad(usuario)));
+    }
+
+    @Override
+    public List<Usuario> buscarPorTexto(String texto) {
+        List<Usuario> resultados = new ArrayList<>(
+                jpa.buscarPorEmail(texto).stream().map(AuthPersistenceMapper::aDominio).toList());
+        // El identificador es un UUID: si el texto lo es, buscar exacto y agregarlo.
+        try {
+            jpa.findById(UUID.fromString(texto.trim()))
+                    .map(AuthPersistenceMapper::aDominio)
+                    .filter(u -> resultados.stream().noneMatch(r -> r.id().equals(u.id())))
+                    .ifPresent(resultados::add);
+        } catch (IllegalArgumentException ignored) {
+            // No es un UUID: solo la búsqueda por correo.
+        }
+        return resultados;
     }
 }

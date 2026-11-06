@@ -6,6 +6,7 @@ import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoValidacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.domain.model.EstadoCatalogo;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.port.PerfilProfesionalConsultaPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.port.PerfilProfesionalModeracionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.CompromisoAgenda;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.Disponibilidad;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.EstadoExposicion;
@@ -35,7 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
  * compromiso ya registrado se rechaza con 409.
  */
 @Service
-public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
+public class PerfilProfesionalService
+        implements PerfilProfesionalConsultaPort, PerfilProfesionalModeracionPort {
     private final PerfilProfesionalRepository perfiles;
     private final CatalogoConsultaPort catalogo;
     private final ArchivoStorageService storage;
@@ -57,12 +59,26 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
         }
         Set<UUID> categorias = validarCategorias(categoriaIds);
         Set<UUID> zonas = validarZonas(zonaIds);
+        List<ExperienciaProfesional> experienciasValidas = experiencias == null ? List.of() : experiencias;
+        experienciasValidas.forEach(e -> validarExperiencia(e.descripcion(), e.fechaInicio(), e.fechaFin()));
         OffsetDateTime ahora = OffsetDateTime.now();
         PerfilProfesional perfil = new PerfilProfesional(UUID.randomUUID(), prestadorId,
                 datosGenerales == null ? Map.of() : datosGenerales, EstadoExposicion.PUBLICO, ahora, ahora,
-                categorias, zonas, experiencias == null ? List.of() : experiencias,
+                categorias, zonas, experienciasValidas,
                 List.of(), List.of(), List.of());
         return perfiles.guardar(perfil);
+    }
+
+    /** Misma validación que al agregar una experiencia suelta: en crear no se tragaba el 500. */
+    private static void validarExperiencia(String descripcion, LocalDate fechaInicio, LocalDate fechaFin) {
+        if (descripcion == null || descripcion.isBlank() || fechaInicio == null) {
+            throw new BusinessException.BadRequest("EXPERIENCIA_INVALIDA",
+                    "La experiencia requiere descripción y fecha de inicio.");
+        }
+        if (fechaFin != null && fechaFin.isBefore(fechaInicio)) {
+            throw new BusinessException.BadRequest("EXPERIENCIA_INVALIDA",
+                    "La fecha de fin no puede ser anterior a la de inicio.");
+        }
     }
 
     @Transactional
@@ -87,14 +103,7 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
     public ExperienciaProfesional agregarExperiencia(UUID prestadorId, String descripcion,
                                                      LocalDate fechaInicio, LocalDate fechaFin) {
         PerfilProfesional actual = propio(prestadorId);
-        if (descripcion == null || descripcion.isBlank() || fechaInicio == null) {
-            throw new BusinessException.BadRequest("EXPERIENCIA_INVALIDA",
-                    "La experiencia requiere descripción y fecha de inicio.");
-        }
-        if (fechaFin != null && fechaFin.isBefore(fechaInicio)) {
-            throw new BusinessException.BadRequest("EXPERIENCIA_INVALIDA",
-                    "La fecha de fin no puede ser anterior a la de inicio.");
-        }
+        validarExperiencia(descripcion, fechaInicio, fechaFin);
         ExperienciaProfesional experiencia = new ExperienciaProfesional(UUID.randomUUID(), actual.id(),
                 descripcion.trim(), fechaInicio, fechaFin);
         var lista = new ArrayList<>(actual.experiencias());
@@ -112,7 +121,8 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
         }
         String evidenciaKey = null;
         if (contenido != null && contenido.length > 0) {
-            ArchivoValidacion.validar(nombreArchivo, tipoContenido, contenido, ArchivoValidacion.IMAGENES);
+            // README: el portafolio admite PDF además de imágenes.
+            ArchivoValidacion.validar(nombreArchivo, tipoContenido, contenido, ArchivoValidacion.DOCUMENTOS);
             evidenciaKey = storage.guardar(nombreArchivo, tipoContenido, contenido);
         }
         ServicioPortafolio servicio = new ServicioPortafolio(UUID.randomUUID(), actual.id(),
@@ -126,11 +136,15 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
     @Transactional
     public void eliminarPortafolio(UUID prestadorId, UUID servicioId) {
         PerfilProfesional actual = propio(prestadorId);
-        if (actual.portafolio().stream().noneMatch(s -> s.id().equals(servicioId))) {
-            throw new BusinessException.NotFound("PORTAFOLIO_NO_ENCONTRADO",
-                    "El servicio de portafolio no existe o no te pertenece.");
-        }
+        ServicioPortafolio item = actual.portafolio().stream()
+                .filter(s -> s.id().equals(servicioId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException.NotFound("PORTAFOLIO_NO_ENCONTRADO",
+                        "El servicio de portafolio no existe o no te pertenece."));
         perfiles.guardar(actual.sinPortafolio(servicioId));
+        if (item.evidenciaKey() != null) {
+            storage.eliminar(item.evidenciaKey());
+        }
     }
 
     @Transactional
@@ -177,6 +191,10 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
     @Transactional
     public CompromisoAgenda actualizarCompromiso(UUID prestadorId, UUID compromisoId,
                                                  OffsetDateTime inicio, OffsetDateTime fin) {
+        if (compromisoId == null) {
+            throw new BusinessException.BadRequest("COMPROMISO_INVALIDO",
+                    "PUT /mio/agenda exige el id del compromiso; sin id usa POST para crear.");
+        }
         return guardarCompromiso(prestadorId, compromisoId, inicio, fin);
     }
 
@@ -189,6 +207,17 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
         }
         if (compromisoId != null && actual.compromisos().stream().noneMatch(c -> c.id().equals(compromisoId))) {
             throw new BusinessException.NotFound("COMPROMISO_NO_ENCONTRADO", "Compromiso no encontrado.");
+        }
+        // Coherente con la regla disponibilidad/agenda (plan-05 T026): dos compromisos
+        // no pueden solaparse; en actualización se excluye el propio compromiso.
+        for (CompromisoAgenda otro : actual.compromisos()) {
+            if (compromisoId != null && otro.id().equals(compromisoId)) {
+                continue;
+            }
+            if (inicio.isBefore(otro.fechaHoraFin()) && otro.fechaHoraInicio().isBefore(fin)) {
+                throw new BusinessException.Conflict("CONFLICTO_AGENDA",
+                        "El compromiso se solapa con otro ya registrado.");
+            }
         }
         CompromisoAgenda compromiso = new CompromisoAgenda(
                 compromisoId == null ? UUID.randomUUID() : compromisoId, actual.id(),
@@ -205,6 +234,23 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
     @Transactional(readOnly = true)
     public PerfilProfesional mio(UUID prestadorId) {
         return propio(prestadorId);
+    }
+
+    /** Cambia el estado de exposición (SPEC-03): PUBLICO u OCULTO. */
+    @Transactional
+    public PerfilProfesional cambiarExposicion(UUID prestadorId, EstadoExposicion nuevo) {
+        if (nuevo == null) {
+            throw new BusinessException.BadRequest("EXPOSICION_INVALIDA",
+                    "estadoExposicion debe ser PUBLICO u OCULTO.");
+        }
+        PerfilProfesional actual = propio(prestadorId);
+        return perfiles.guardar(actual.conExposicion(nuevo));
+    }
+
+    @Override
+    @Transactional
+    public void ocultarPerfil(UUID prestadorId) {
+        cambiarExposicion(prestadorId, EstadoExposicion.OCULTO);
     }
 
     private PerfilProfesional propio(UUID prestadorId) {

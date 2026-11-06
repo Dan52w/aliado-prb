@@ -101,6 +101,20 @@ public class PreferenciasService {
                 clave, "LISTA"));
     }
 
+    /** Contenido de una exportación propia lista para descargar (SPEC-14). */
+    @Transactional(readOnly = true)
+    public byte[] descargarExportacion(UUID usuarioId, UUID descargaId) {
+        DescargaHistorial descarga = descargas.porId(descargaId)
+                .filter(d -> d.usuarioId().equals(usuarioId))
+                .orElseThrow(() -> new BusinessException.NotFound("DESCARGA_NO_ENCONTRADA",
+                        "Exportación no encontrada."));
+        if (!"LISTA".equals(descarga.estado())) {
+            throw new BusinessException.Conflict("DESCARGA_NO_LISTA",
+                    "La exportación aún no está lista para descargar.");
+        }
+        return storage.leer(descarga.archivoKey());
+    }
+
     @Transactional(readOnly = true)
     public Indicadores misIndicadores(UUID prestadorId) {
         if (!roles.esPrestador(prestadorId)) {
@@ -108,7 +122,13 @@ public class PreferenciasService {
                     "Los indicadores son solo para prestadores.");
         }
         List<ServicioContratado> todos = servicios.porUsuario(prestadorId);
-        long finalizados = todos.stream().filter(s -> s.estado() == EstadoServicio.FINALIZADO).count();
+        // SPEC-14 (T007): el SPEC no fija las fórmulas. TERMINADO es trabajo terminado
+        // por el prestador y pendiente de confirmación del cliente: cuenta como
+        // finalizado, no como en curso. CANCELADO no cuenta en ningún subtotal.
+        long finalizados = todos.stream()
+                .filter(s -> s.estado() == EstadoServicio.FINALIZADO
+                        || s.estado() == EstadoServicio.TERMINADO)
+                .count();
         long enCurso = todos.stream()
                 .filter(s -> s.estado() == EstadoServicio.EN_EJECUCION
                         || s.estado() == EstadoServicio.CONTRATADO)

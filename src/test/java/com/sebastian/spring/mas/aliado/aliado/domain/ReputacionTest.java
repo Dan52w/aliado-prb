@@ -1,5 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.domain;
 
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.RolConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.ConfianzaService;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.model.Calificacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.model.Reputacion;
@@ -46,9 +47,12 @@ class ReputacionTest {
     private ServicioLecturaPort servicios;
     @Mock
     private ReportePort reportes;
+    @Mock
+    private RolConsultaPort roles;
 
     private ConfianzaService servicio() {
-        return new ConfianzaService(calificaciones, resenas, reputaciones, verificaciones, servicios, reportes);
+        return new ConfianzaService(calificaciones, resenas, reputaciones, verificaciones, servicios, reportes,
+                roles);
     }
 
     @Test

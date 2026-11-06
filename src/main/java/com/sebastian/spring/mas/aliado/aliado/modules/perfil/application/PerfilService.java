@@ -1,7 +1,11 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.perfil.application;
 
+import com.sebastian.spring.mas.aliado.aliado.common.events.Eventos;
+import com.sebastian.spring.mas.aliado.aliado.common.events.PublicadorEventos;
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.PerfilBasePort;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfil.application.port.PerfilBusquedaPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfil.application.port.PerfilModeracionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.model.EstadoEliminacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.model.Perfil;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.model.SolicitudEliminacion;
@@ -12,6 +16,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.repository.S
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.repository.UbicacionRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.application.port.ServicioConsultaPort;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,22 +24,27 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Gestión de perfil y privacidad (SPEC-02, UC008–UC013).
  * La dirección exacta solo se expone al propio usuario; a terceros, solo la zona aproximada.
- * La eliminación real (anonimización) no se ejecuta: la política no está definida en los SPEC
- * (F02-QA-03); la confirmación queda registrada y la cuenta sigue activa hasta definirla.
+ * La eliminación confirmada desactiva la cuenta de verdad: el evento EliminacionConfirmada
+ * la bloquea (login rechazado) y cierra sus sesiones; la anonimización de datos personales
+ * sigue pendiente de decisión de producto (F02-QA-03).
  */
 @Service
-public class PerfilService implements PerfilBasePort {
+public class PerfilService implements PerfilBasePort, PerfilModeracionPort,
+        PerfilBusquedaPort {
     private final PerfilRepository perfiles;
     private final UbicacionRepository ubicaciones;
     private final SolicitudEliminacionRepository eliminaciones;
     private final ServicioConsultaPort servicios;
+    private final PublicadorEventos eventos;
 
     public PerfilService(PerfilRepository perfiles, UbicacionRepository ubicaciones,
-                         SolicitudEliminacionRepository eliminaciones, ServicioConsultaPort servicios) {
+                         SolicitudEliminacionRepository eliminaciones, ServicioConsultaPort servicios,
+                         PublicadorEventos eventos) {
         this.perfiles = perfiles;
         this.ubicaciones = ubicaciones;
         this.eliminaciones = eliminaciones;
         this.servicios = servicios;
+        this.eventos = eventos;
     }
 
     public record PerfilPropio(UUID usuarioId, String nombre, String telefono, String preferenciaVisibilidad,
@@ -69,6 +79,10 @@ public class PerfilService implements PerfilBasePort {
         if (nombre != null && nombre.isBlank()) {
             throw new BusinessException.BadRequest("NOMBRE_INVALIDO", "El nombre no puede estar vacío.");
         }
+        if (nombre != null && nombre.trim().length() > 120) {
+            throw new BusinessException.BadRequest("NOMBRE_MUY_LARGO",
+                    "El nombre admite máximo 120 caracteres.");
+        }
         if (telefono != null && !telefono.matches("[+0-9 ()-]{7,30}")) {
             throw new BusinessException.BadRequest("TELEFONO_INVALIDO", "El teléfono tiene un formato inválido.");
         }
@@ -84,6 +98,14 @@ public class PerfilService implements PerfilBasePort {
     public PerfilPropio configurarUbicacion(UUID usuarioId, String zonaAproximada, String direccionExacta) {
         if (zonaAproximada == null || zonaAproximada.isBlank()) {
             throw new BusinessException.BadRequest("ZONA_REQUERIDA", "La zona aproximada es obligatoria.");
+        }
+        if (zonaAproximada.trim().length() > 100) {
+            throw new BusinessException.BadRequest("ZONA_MUY_LARGA",
+                    "La zona aproximada admite máximo 100 caracteres.");
+        }
+        if (direccionExacta != null && direccionExacta.length() > 500) {
+            throw new BusinessException.BadRequest("DIRECCION_MUY_LARGA",
+                    "La dirección exacta admite máximo 500 caracteres.");
         }
         Ubicacion actual = ubicaciones.porUsuarioId(usuarioId).orElse(null);
         // Editar la zona no altera la dirección exacta ya comprometida en un servicio activo.
@@ -110,8 +132,29 @@ public class PerfilService implements PerfilBasePort {
         return consultarMe(usuarioId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Perfil> buscarPorNombre(String texto) {
+        return perfiles.buscarPorNombre(texto);
+    }
+
+    @Override
+    @Transactional
+    public void ocultarPerfil(UUID usuarioId) {
+        Perfil actual = perfiles.porUsuarioId(usuarioId)
+                .orElseThrow(() -> new BusinessException.NotFound("PERFIL_NO_ENCONTRADO", "Perfil no encontrado."));
+        perfiles.guardar(new Perfil(usuarioId, actual.nombre(), actual.telefono(),
+                Visibilidad.PRIVADO, actual.version()));
+    }
+
     @Transactional(readOnly = true)
     public PerfilPropio perfilPublico(UUID usuarioId) {
+        Perfil perfil = perfiles.porUsuarioId(usuarioId)
+                .orElseThrow(() -> new BusinessException.NotFound(
+                        "PERFIL_NO_DISPONIBLE", "El perfil no está disponible."));
+        if (perfil.preferenciaVisibilidad() == Visibilidad.PRIVADO) {
+            throw new BusinessException.NotFound("PERFIL_NO_DISPONIBLE", "El perfil no está disponible.");
+        }
         Ubicacion ubicacion = ubicaciones.porUsuarioId(usuarioId)
                 .orElseThrow(() -> new BusinessException.NotFound(
                         "PERFIL_NO_DISPONIBLE", "El perfil no está disponible."));
@@ -148,7 +191,11 @@ public class PerfilService implements PerfilBasePort {
         }
         SolicitudEliminacion confirmada = new SolicitudEliminacion(solicitud.id(), usuarioId,
                 solicitud.fechaSolicitud(), solicitud.fechaExpiracion(), EstadoEliminacion.CONFIRMADA, ahora);
-        return eliminaciones.guardar(confirmada);
+        SolicitudEliminacion guardada = eliminaciones.guardar(confirmada);
+        // La eliminación es real: auth bloquea la cuenta y cierra sus sesiones
+        // (mismo efecto que un bloqueo preventivo, sin tocar la anonimización pendiente).
+        eventos.publicar(new Eventos.EliminacionConfirmada(usuarioId, ahora));
+        return guardada;
     }
 
     @Transactional

@@ -4,6 +4,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.EntregaNotificacionesPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.NotificacionConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.NotificacionPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.application.port.ConsultaPreferenciasPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.domain.model.Canal;
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.domain.model.EstadoEntrega;
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.domain.model.Notificacion;
@@ -24,10 +25,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificacionService implements NotificacionPort, NotificacionConsultaPort, EntregaNotificacionesPort {
     private final NotificacionRepository notificaciones;
     private final CanalEntregaNotificacion canal;
+    private final ConsultaPreferenciasPort preferencias;
 
-    public NotificacionService(NotificacionRepository notificaciones, CanalEntregaNotificacion canal) {
+    public NotificacionService(NotificacionRepository notificaciones, CanalEntregaNotificacion canal,
+                               ConsultaPreferenciasPort preferencias) {
         this.notificaciones = notificaciones;
         this.canal = canal;
+        this.preferencias = preferencias;
     }
 
     @Override
@@ -38,6 +42,10 @@ public class NotificacionService implements NotificacionPort, NotificacionConsul
             return; // Idempotencia por evento (plan general 19.3): no duplicar avisos.
         }
         Canal canalEfectivo = canalEntrega == null ? Canal.PUSH : canalEntrega;
+        // SPEC-14 (F14-T004): no registrar avisos de un tipo/canal que el usuario desactivó.
+        if (!preferencias.avisoHabilitado(destinatarioId, tipo.name(), canalEfectivo.name())) {
+            return;
+        }
         Notificacion notificacion = new Notificacion(UUID.randomUUID(), destinatarioId, tipo, aggregateId,
                 eventVersion, detalle, canalEfectivo, EstadoEntrega.PENDIENTE, 0, OffsetDateTime.now(), null);
         notificaciones.guardar(notificacion);
@@ -58,7 +66,9 @@ public class NotificacionService implements NotificacionPort, NotificacionConsul
     private NotificacionConsulta aConsulta(Notificacion n) {
         UUID servicioId = (n.tipo() == TipoNotificacion.ACEPTACION_PROPUESTA
                 || n.tipo() == TipoNotificacion.CAMBIO_ESTADO_SERVICIO) ? n.aggregateId() : null;
-        return new NotificacionConsulta(n.id(), n.tipo(), servicioId, n.detalle(),
+        // SPEC-06: el aggregateId de NUEVA_OPORTUNIDAD ES la solicitud que la originó.
+        UUID solicitudId = n.tipo() == TipoNotificacion.NUEVA_OPORTUNIDAD ? n.aggregateId() : null;
+        return new NotificacionConsulta(n.id(), n.tipo(), servicioId, solicitudId, n.detalle(),
                 n.estadoEntrega(), n.fechaGeneracion());
     }
 
@@ -67,6 +77,12 @@ public class NotificacionService implements NotificacionPort, NotificacionConsul
     @Transactional
     public void entregarPendientes() {
         for (Notificacion pendiente : notificaciones.pendientesParaEntrega()) {
+            // La preferencia pudo cambiar desde el registro: si ya no está habilitada,
+            // se salta la ronda sin gastar un intento; queda PENDIENTE por si se re-habilita.
+            if (!preferencias.avisoHabilitado(pendiente.destinatarioId(), pendiente.tipo().name(),
+                    pendiente.canal().name())) {
+                continue;
+            }
             boolean entregada = false;
             try {
                 entregada = canal.entregar(pendiente);

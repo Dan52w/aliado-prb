@@ -15,6 +15,6 @@ public final class FormalizacionDtos {
                                List<EnlaceResponse> enlaces) {}
     public record RutaResponse(UUID id, String nombre, String descripcion, List<PasoResponse> pasos,
                                String avisoLegal) {}
-    public record ProgresoResponse(UUID rutaId, int valorOrientativo) {}
+    public record ProgresoResponse(UUID rutaId, int valorOrientativo, String avisoLegal) {}
     public record ActualizarProgresoRequest(@NotNull UUID rutaId, @Min(0) @Max(100) int valor) {}
 }

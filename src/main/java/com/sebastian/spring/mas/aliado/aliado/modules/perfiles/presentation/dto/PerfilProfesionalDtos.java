@@ -46,4 +46,15 @@ public final class PerfilProfesionalDtos {
     public record CompromisoResponse(UUID id, OffsetDateTime fechaHoraInicio, OffsetDateTime fechaHoraFin, String origen) {}
 
     public record IdResponse(UUID id) {}
+
+    public record ExposicionRequest(String estadoExposicion) {}
+
+    public record ResenaPublicaResponse(UUID id, int valor, String texto, OffsetDateTime fechaCreacion) {}
+
+    /** Vista previa = vista pública: sin compromisos, portafolio ni experiencias. */
+    public record VistaPreviaResponse(UUID prestadorId, List<String> categorias, List<String> zonas,
+                                      java.math.BigDecimal reputacion, int cantidadCalificaciones,
+                                      String nivelVerificacion, List<DisponibilidadResponse> disponibilidad,
+                                      Map<String, Object> datosGenerales,
+                                      List<ResenaPublicaResponse> resenas) {}
 }

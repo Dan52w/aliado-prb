@@ -28,7 +28,11 @@ public class DescubrimientoController {
                 p.disponibilidad().stream()
                         .map(b -> new DescubrimientoDtos.BloqueResponse(b.diaSemana(), b.horaInicio(), b.horaFin()))
                         .toList(),
-                p.datosGenerales());
+                p.datosGenerales(),
+                p.resenas().stream()
+                        .map(r -> new DescubrimientoDtos.ResenaPublicaResponse(r.id(), r.valor(), r.texto(),
+                                r.fechaCreacion()))
+                        .toList());
     }
 
     @GetMapping("/prestadores")

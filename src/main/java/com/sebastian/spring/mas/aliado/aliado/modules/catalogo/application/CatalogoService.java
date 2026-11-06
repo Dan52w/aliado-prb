@@ -1,6 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.port.AuditoriaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoAdminPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.domain.model.Categoria;
@@ -19,59 +20,95 @@ import org.springframework.transaction.annotation.Transactional;
 public class CatalogoService implements CatalogoConsultaPort, CatalogoAdminPort {
     private final CategoriaRepository categorias;
     private final ZonaRepository zonas;
+    private final AuditoriaPort auditoria;
 
-    public CatalogoService(CategoriaRepository categorias, ZonaRepository zonas) {
+    public CatalogoService(CategoriaRepository categorias, ZonaRepository zonas, AuditoriaPort auditoria) {
         this.categorias = categorias;
         this.zonas = zonas;
+        this.auditoria = auditoria;
     }
 
+    @Override
     @Transactional
-    public Categoria crearCategoria(String nombre) {
+    public Categoria crearCategoria(UUID administradorId, String nombre) {
         validarNombre(nombre);
         if (categorias.porNombre(nombre.trim()).isPresent()) {
             throw new BusinessException.Conflict("CATEGORIA_DUPLICADA", "Ya existe una categoría con ese nombre.");
         }
-        return categorias.guardar(new Categoria(UUID.randomUUID(), nombre.trim(), EstadoCatalogo.ACTIVO));
+        Categoria creada = categorias.guardar(new Categoria(UUID.randomUUID(), nombre.trim(), EstadoCatalogo.ACTIVO));
+        auditoria.registrar(administradorId, "CATEGORY_CREATED", "CATEGORIA", creada.id(), creada.nombre());
+        return creada;
     }
 
+    @Override
     @Transactional
-    public Categoria actualizarCategoria(UUID id, String nombre, String estado) {
+    public Categoria actualizarCategoria(UUID administradorId, UUID id, String nombre, String estado) {
         Categoria actual = categoriaPorIdOError(id);
+        if (nombre != null && nombre.isBlank()) {
+            throw new BusinessException.BadRequest("NOMBRE_REQUERIDO", "El nombre no puede estar vacío.");
+        }
+        String nombreFinal = nombre == null ? actual.nombre() : nombre.trim();
+        categorias.porNombre(nombreFinal)
+                .filter(otra -> !otra.id().equals(id))
+                .ifPresent(otra -> {
+                    throw new BusinessException.Conflict("CATEGORIA_DUPLICADA",
+                            "Ya existe otra categoría con ese nombre.");
+                });
         EstadoCatalogo nuevoEstado = estadoOActual(estado, actual.estado());
-        return categorias.guardar(new Categoria(id,
-                nombre == null ? actual.nombre() : nombre.trim(), nuevoEstado));
+        Categoria actualizada = categorias.guardar(new Categoria(id, nombreFinal, nuevoEstado));
+        auditoria.registrar(administradorId, "CATEGORY_UPDATED", "CATEGORIA", id, nombreFinal);
+        return actualizada;
     }
 
     /** Borrado lógico (SPEC-12): desactivar no rompe borradores ni coberturas existentes. */
+    @Override
     @Transactional
-    public void desactivarCategoria(UUID id) {
+    public void desactivarCategoria(UUID administradorId, UUID id) {
         Categoria actual = categoriaPorIdOError(id);
         categorias.guardar(new Categoria(id, actual.nombre(), EstadoCatalogo.INACTIVO));
+        auditoria.registrar(administradorId, "CATEGORY_DEACTIVATED", "CATEGORIA", id, actual.nombre());
     }
 
+    @Override
     @Transactional
-    public Zona crearZona(String nombre, String coberturaGeografica) {
+    public Zona crearZona(UUID administradorId, String nombre, String coberturaGeografica) {
         validarNombre(nombre);
         if (zonas.porNombre(nombre.trim()).isPresent()) {
             throw new BusinessException.Conflict("ZONA_DUPLICADA", "Ya existe una zona con ese nombre.");
         }
-        return zonas.guardar(new Zona(UUID.randomUUID(), nombre.trim(), coberturaGeografica, EstadoCatalogo.ACTIVO));
+        Zona creada = zonas.guardar(new Zona(UUID.randomUUID(), nombre.trim(), coberturaGeografica, EstadoCatalogo.ACTIVO));
+        auditoria.registrar(administradorId, "ZONE_CREATED", "ZONA", creada.id(), creada.nombre());
+        return creada;
     }
 
+    @Override
     @Transactional
-    public Zona actualizarZona(UUID id, String nombre, String coberturaGeografica, String estado) {
+    public Zona actualizarZona(UUID administradorId, UUID id, String nombre, String coberturaGeografica, String estado) {
         Zona actual = zonaPorIdOError(id);
+        if (nombre != null && nombre.isBlank()) {
+            throw new BusinessException.BadRequest("NOMBRE_REQUERIDO", "El nombre no puede estar vacío.");
+        }
+        String nombreFinal = nombre == null ? actual.nombre() : nombre.trim();
+        zonas.porNombre(nombreFinal)
+                .filter(otra -> !otra.id().equals(id))
+                .ifPresent(otra -> {
+                    throw new BusinessException.Conflict("ZONA_DUPLICADA",
+                            "Ya existe otra zona con ese nombre.");
+                });
         EstadoCatalogo nuevoEstado = estadoOActual(estado, actual.estado());
-        return zonas.guardar(new Zona(id,
-                nombre == null ? actual.nombre() : nombre.trim(),
+        Zona actualizada = zonas.guardar(new Zona(id, nombreFinal,
                 coberturaGeografica == null ? actual.coberturaGeografica() : coberturaGeografica,
                 nuevoEstado));
+        auditoria.registrar(administradorId, "ZONE_UPDATED", "ZONA", id, nombreFinal);
+        return actualizada;
     }
 
+    @Override
     @Transactional
-    public void desactivarZona(UUID id) {
+    public void desactivarZona(UUID administradorId, UUID id) {
         Zona actual = zonaPorIdOError(id);
         zonas.guardar(new Zona(id, actual.nombre(), actual.coberturaGeografica(), EstadoCatalogo.INACTIVO));
+        auditoria.registrar(administradorId, "ZONE_DEACTIVATED", "ZONA", id, actual.nombre());
     }
 
     @Transactional(readOnly = true)
