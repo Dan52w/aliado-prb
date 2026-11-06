@@ -42,14 +42,12 @@ public class UsuarioPersistenceAdapter implements UsuarioRepository {
     public List<Usuario> buscarPorTexto(String texto) {
         List<Usuario> resultados = new ArrayList<>(
                 jpa.buscarPorEmail(texto).stream().map(AuthPersistenceMapper::aDominio).toList());
-        // El identificador es un UUID: si el texto lo es, buscar exacto y agregarlo.
         try {
             jpa.findById(UUID.fromString(texto.trim()))
                     .map(AuthPersistenceMapper::aDominio)
                     .filter(u -> resultados.stream().noneMatch(r -> r.id().equals(u.id())))
                     .ifPresent(resultados::add);
         } catch (IllegalArgumentException ignored) {
-            // No es un UUID: solo la búsqueda por correo.
         }
         return resultados;
     }

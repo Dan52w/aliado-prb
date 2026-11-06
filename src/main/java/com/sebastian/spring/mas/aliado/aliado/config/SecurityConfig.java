@@ -41,13 +41,12 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/api-docs", "/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/prestadores/*/confianza").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/perfil/*/publico").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMINISTRADOR")
                         .anyRequest().authenticated())
-                // Errores de seguridad en el mismo formato §13.1 que el resto de la API
-                // (nunca el cuerpo por defecto de Spring).
+
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((req, res, ex) ->
                                 escribirError(req, res, objectMapper, HttpStatus.UNAUTHORIZED,

@@ -1,6 +1,10 @@
 package com.sebastian.spring.mas.aliado.aliado.common.web;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.exception.CorreoYaRegistradoException;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.exception.PasswordInvalidaException;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.exception.RolNoRegistrableException;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.exception.TerminosNoAceptadosException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
@@ -17,6 +21,26 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(CorreoYaRegistradoException.class)
+    public ResponseEntity<ApiError> correoDuplicado(CorreoYaRegistradoException ex, HttpServletRequest req) {
+        return respuesta(HttpStatus.CONFLICT, "CORREO_YA_REGISTRADO", ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(TerminosNoAceptadosException.class)
+    public ResponseEntity<ApiError> terminosNoAceptados(TerminosNoAceptadosException ex, HttpServletRequest req) {
+        return respuesta(HttpStatus.BAD_REQUEST, "TERMINOS_NO_ACEPTADOS", ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(RolNoRegistrableException.class)
+    public ResponseEntity<ApiError> rolNoRegistrable(RolNoRegistrableException ex, HttpServletRequest req) {
+        return respuesta(HttpStatus.BAD_REQUEST, "ROL_NO_REGISTRABLE", ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(PasswordInvalidaException.class)
+    public ResponseEntity<ApiError> passwordInvalida(PasswordInvalidaException ex, HttpServletRequest req) {
+        return respuesta(HttpStatus.BAD_REQUEST, "PASSWORD_INVALIDA", ex.getMessage(), req);
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiError> negocio(BusinessException ex, HttpServletRequest req) {
