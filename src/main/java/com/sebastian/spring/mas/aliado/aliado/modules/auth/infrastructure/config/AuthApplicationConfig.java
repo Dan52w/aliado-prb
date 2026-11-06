@@ -3,6 +3,8 @@ package com.sebastian.spring.mas.aliado.aliado.modules.auth.infrastructure.confi
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.HasheadorPassword;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.PerfilBasePort;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.service.RegistrarUsuarioService;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.service.RegistrarConsentimientoService;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.usecase.RegistrarConsentimientoUseCase;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.usecase.RegistrarUsuarioUseCase;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.repository.ConsentimientoRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.repository.UsuarioRepository;
@@ -17,11 +19,17 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class AuthApplicationConfig {
 
     @Bean
+    public RegistrarConsentimientoUseCase registrarConsentimientoUseCase(
+            ConsentimientoRepository consentimientos) {
+        return new RegistrarConsentimientoService(consentimientos);
+    }
+
+    @Bean
     public RegistrarUsuarioService registrarUsuarioService(UsuarioRepository usuarios,
-                                                           ConsentimientoRepository consentimientos,
+                                                           RegistrarConsentimientoUseCase registrarConsentimientoUseCase,
                                                            PerfilBasePort perfilBase,
                                                            HasheadorPassword hasheadorPassword) {
-        return new RegistrarUsuarioService(usuarios, consentimientos, perfilBase, hasheadorPassword);
+        return new RegistrarUsuarioService(usuarios, registrarConsentimientoUseCase, perfilBase, hasheadorPassword);
     }
 
     @Bean

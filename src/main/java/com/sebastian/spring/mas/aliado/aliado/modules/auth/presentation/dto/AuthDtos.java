@@ -1,6 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.auth.presentation.dto;
 
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
@@ -13,7 +14,7 @@ public final class AuthDtos {
             @Email @NotBlank String email,
             @NotBlank String password,
             @NotNull String rol,
-            boolean aceptaTerminos,
+            @AssertTrue(message = "debe aceptar los términos y el tratamiento de datos") boolean aceptaTerminos,
             @NotBlank String versionTerminos) {}
 
     public record RegistroResponse(UUID id, String email, String rol) {}
