@@ -1,0 +1,44 @@
+package com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model;
+
+import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Servicio contratado (SPEC-08).
+ * Máquina de estados (decisión P-01 documentada: secuencia lineal estricta;
+ * TERMINADO exige pasar antes por EN_EJECUCION).
+ * CONTRATADO -> EN_EJECUCION -> TERMINADO -> FINALIZADO; cancelación solo antes de FINALIZADO.
+ */
+public record ServicioContratado(UUID id, UUID solicitudId, UUID propuestaId, UUID clienteId, UUID prestadorId,
+                                 EstadoServicio estado, boolean comunicacionHabilitada,
+                                 OffsetDateTime fechaContratacion, int version,
+                                 List<HistorialEstadoServicio> historial, List<MensajeServicio> mensajes) {
+
+    public boolean esParticipante(UUID usuarioId) {
+        return clienteId.equals(usuarioId) || prestadorId.equals(usuarioId);
+    }
+
+    public boolean activo() {
+        return estado == EstadoServicio.CONTRATADO || estado == EstadoServicio.EN_EJECUCION
+                || estado == EstadoServicio.TERMINADO;
+    }
+
+    public ServicioContratado transitarA(EstadoServicio nuevo, UUID actorId, OffsetDateTime ahora) {
+        boolean permitido = switch (estado) {
+            case CONTRATADO -> nuevo == EstadoServicio.EN_EJECUCION || nuevo == EstadoServicio.CANCELADO;
+            case EN_EJECUCION -> nuevo == EstadoServicio.TERMINADO || nuevo == EstadoServicio.CANCELADO;
+            case TERMINADO -> nuevo == EstadoServicio.FINALIZADO || nuevo == EstadoServicio.CANCELADO;
+            case FINALIZADO, CANCELADO -> false;
+        };
+        if (!permitido) {
+            throw new BusinessException.Conflict("TRANSICION_INVALIDA",
+                    "No se puede pasar de " + estado + " a " + nuevo + ".");
+        }
+        var nuevoHistorial = new java.util.ArrayList<>(historial);
+        nuevoHistorial.add(new HistorialEstadoServicio(UUID.randomUUID(), id, estado, nuevo, actorId, ahora));
+        return new ServicioContratado(id, solicitudId, propuestaId, clienteId, prestadorId, nuevo,
+                comunicacionHabilitada, fechaContratacion, version, List.copyOf(nuevoHistorial), mensajes);
+    }
+}

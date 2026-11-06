@@ -79,6 +79,19 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- Jackson 2 explícito: el código usa com.fasterxml.jackson (JsonNode/ObjectMapper)
+             para idempotencia y datosGenerales JSONB. Spring Boot 4 solo auto-configura el
+             bean de Jackson 3 (tools.jackson), así que el bean de Jackson 2 se declara
+             en config/Jackson2Config. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

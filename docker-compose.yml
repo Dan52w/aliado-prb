@@ -1,0 +1,17 @@
+# ALIADO — solo PostgreSQL para desarrollo local.
+# La app se corre con Maven: ./mvnw spring-boot:run (Java 21).
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: aliado-postgres
+    environment:
+      POSTGRES_DB: aliado
+      POSTGRES_USER: aliado
+      POSTGRES_PASSWORD: aliado
+    ports:
+      - "5432:5432"
+    volumes:
+      - aliado-data:/var/lib/postgresql/data
+
+volumes:
+  aliado-data:

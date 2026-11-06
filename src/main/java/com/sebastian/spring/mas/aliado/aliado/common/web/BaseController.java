@@ -1,0 +1,49 @@
+package com.sebastian.spring.mas.aliado.aliado.common.web;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.IdempotencyService;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.http.ResponseEntity;
+
+/**
+ * Utilidades compartidas por los controladores de escritura.
+ * La idempotencia (plan general, sección 14) se apoya en la cabecera
+ * Idempotency-Key: si la clave ya fue procesada para la operación,
+ * se devuelve la respuesta guardada sin ejecutar de nuevo el comando.
+ */
+public abstract class BaseController {
+    protected final ObjectMapper objectMapper;
+    protected final IdempotencyService idempotencyService;
+
+    protected BaseController(ObjectMapper objectMapper, IdempotencyService idempotencyService) {
+        this.objectMapper = objectMapper;
+        this.idempotencyService = idempotencyService;
+    }
+
+    protected Optional<ResponseEntity<JsonNode>> respuestaGuardada(UUID clave, String operacion) {
+        return idempotencyService.buscar(clave, operacion)
+                .map(guardada -> ResponseEntity.status(guardada.statusCode()).body(guardada.cuerpo()));
+    }
+
+    protected void guardarRespuesta(UUID clave, String operacion, UUID usuarioId, int status, Object cuerpo) {
+        try {
+            JsonNode nodo = objectMapper.valueToTree(cuerpo);
+            idempotencyService.guardar(clave, operacion, usuarioId, status, nodo);
+        } catch (IllegalArgumentException ignored) {
+            // La idempotencia nunca debe romper la operación principal.
+        }
+    }
+
+    protected static UUID claveIdempotencia(String header) {
+        if (header == null || header.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(header.trim());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+}

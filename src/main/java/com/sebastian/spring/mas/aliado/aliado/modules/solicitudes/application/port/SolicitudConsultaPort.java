@@ -1,0 +1,12 @@
+package com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.application.port;
+
+import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.domain.model.Solicitud;
+import java.util.Optional;
+import java.util.UUID;
+
+/** Contrato público de solicitudes para otros módulos. */
+public interface SolicitudConsultaPort {
+    Optional<Solicitud> porId(UUID id);
+    java.util.List<Solicitud> publicadas();
+    void marcarContratada(UUID solicitudId);
+}
