@@ -6,7 +6,7 @@ monolito modular con Spring Boot 4.1.2, Java 21, PostgreSQL y Flyway.
 
 ## Alcance del MVP
 
-Implementado según `src/docs/plans/` y `src/docs/specs/`:
+Implementado según `docs` y `docs`:
 
 | SPEC | Módulo | Estado |
 |---|---|---|
@@ -115,7 +115,7 @@ registra en el log solo para desarrollo.
 ## Arquitectura
 
 Monolito modular por SPEC, con Clean Architecture por módulo (`domain`,
-`application`, `infrastructure`, `presentation`) según `src/AGENTS.md`.
+`application`, `infrastructure`, `presentation`) según `AGENTS.md`.
 Comunicación entre módulos solo por puertos/fachadas públicas. Entidades JPA
 planas (FK como UUID, sin asociaciones entre módulos). Sin Lombok en el código
 generado: constructores y getters explícitos.

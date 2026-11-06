@@ -1,5 +1,3 @@
-# ALIADO — solo PostgreSQL para desarrollo local.
-# La app se corre con Maven: ./mvnw spring-boot:run (Java 21).
 services:
   postgres:
     image: postgres:17-alpine
