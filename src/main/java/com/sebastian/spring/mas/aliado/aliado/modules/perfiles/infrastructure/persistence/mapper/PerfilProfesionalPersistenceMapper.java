@@ -14,6 +14,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.infrastructure.pe
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.infrastructure.persistence.entity.ServicioPortafolioEntity;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +67,7 @@ public final class PerfilProfesionalPersistenceMapper {
             xe.setFechaFin(x.fechaFin());
             return xe;
         }).toList();
-        e.setExperiencias(new java.util.ArrayList<>(experiencias));
+        e.setExperiencias(new ArrayList<>(experiencias));
         List<ServicioPortafolioEntity> portafolio = p.portafolio().stream().map(s -> {
             ServicioPortafolioEntity se = new ServicioPortafolioEntity();
             se.setId(s.id());
@@ -76,7 +77,7 @@ public final class PerfilProfesionalPersistenceMapper {
             se.setFechaCreacion(s.fechaCreacion());
             return se;
         }).toList();
-        e.setPortafolio(new java.util.ArrayList<>(portafolio));
+        e.setPortafolio(new ArrayList<>(portafolio));
         List<DisponibilidadEntity> disponibilidades = p.disponibilidades().stream().map(d -> {
             DisponibilidadEntity de = new DisponibilidadEntity();
             de.setId(d.id());
@@ -86,7 +87,7 @@ public final class PerfilProfesionalPersistenceMapper {
             de.setHoraFin(d.horaFin());
             return de;
         }).toList();
-        e.setDisponibilidades(new java.util.ArrayList<>(disponibilidades));
+        e.setDisponibilidades(new ArrayList<>(disponibilidades));
         List<CompromisoAgendaEntity> compromisos = p.compromisos().stream().map(c -> {
             CompromisoAgendaEntity ce = new CompromisoAgendaEntity();
             ce.setId(c.id());
@@ -96,7 +97,7 @@ public final class PerfilProfesionalPersistenceMapper {
             ce.setOrigen(c.origen().name());
             return ce;
         }).toList();
-        e.setCompromisos(new java.util.ArrayList<>(compromisos));
+        e.setCompromisos(new ArrayList<>(compromisos));
         return e;
     }
 }

@@ -1,6 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.config;
 
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.AuthService;
+import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,7 +38,7 @@ public class AdminBootstrap implements ApplicationRunner {
         try {
             authService.crearAdministrador(adminEmail, adminPassword);
             log.info("Cuenta administradora lista para {}.", adminEmail);
-        } catch (IllegalStateException ex) {
+        } catch (BusinessException.Conflict ex) {
             log.info("Cuenta administradora ya existente para {}.", adminEmail);
         }
     }

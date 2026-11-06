@@ -15,7 +15,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiError> negocio(BusinessException ex, HttpServletRequest req) {
-        return respuesta(ex.status(), ex.code(), ex.getMessage(), req);
+        HttpStatus estado = HttpStatus.resolve(ex.status());
+        if (estado == null) {
+            estado = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        return respuesta(estado, ex.code(), ex.getMessage(), req);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -25,6 +29,16 @@ public class GlobalExceptionHandler {
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .orElse("Datos inválidos.");
         return respuesta(HttpStatus.BAD_REQUEST, "DATOS_INVALIDOS", detalle, req);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> argumentoInvalido(IllegalArgumentException ex, HttpServletRequest req) {
+        return respuesta(HttpStatus.BAD_REQUEST, "DATOS_INVALIDOS", "Datos inválidos.", req);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiError> estadoInvalido(IllegalStateException ex, HttpServletRequest req) {
+        return respuesta(HttpStatus.INTERNAL_SERVER_ERROR, "ERROR_INTERNO", "Ocurrió un error inesperado.", req);
     }
 
     @ExceptionHandler(Exception.class)

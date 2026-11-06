@@ -1,10 +1,8 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.servicios.presentation.controller;
 
+import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyService;
 import com.sebastian.spring.mas.aliado.aliado.common.web.BaseController;
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
-import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.IdempotencyService;
-import com.sebastian.spring.mas.aliado.aliado.modules.propuestas.domain.model.Propuesta;
-import com.sebastian.spring.mas.aliado.aliado.modules.propuestas.presentation.dto.PropuestaDtos;
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.application.ServicioService;
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.ServicioContratado;
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.presentation.dto.ServicioDtos;
@@ -38,29 +36,15 @@ public class ServicioController extends BaseController {
                 s.prestadorId(), s.estado().name(), s.comunicacionHabilitada(), s.fechaContratacion());
     }
 
-    @GetMapping("/solicitudes/{solicitudId}/propuestas")
-    public ResponseEntity<List<PropuestaDtos.PropuestaResponse>> propuestasDeSolicitud(@PathVariable UUID solicitudId) {
-        SecurityUtils.exigirRol("CLIENTE");
-        return ResponseEntity.ok(service.propuestasDeSolicitud(solicitudId, SecurityUtils.actual().id()).stream()
-                .map(p -> new PropuestaDtos.PropuestaResponse(p.id(), p.solicitudId(), p.prestadorId(),
-                        p.disponibilidad(), p.mensaje(), p.estado().name())).toList());
-    }
-
     @PostMapping("/propuestas/{id}/aceptar")
     public ResponseEntity<?> aceptar(@PathVariable UUID id,
                                      @RequestHeader(value = "Idempotency-Key", required = false) String claveHeader) {
         SecurityUtils.exigirRol("CLIENTE");
         UUID clienteId = SecurityUtils.actual().id();
-        UUID clave = claveIdempotencia(claveHeader);
-        var guardada = clave == null ? java.util.Optional.<ResponseEntity<com.fasterxml.jackson.databind.JsonNode>>empty()
-                : respuestaGuardada(clave, "servicios.aceptar");
-        if (guardada.isPresent()) {
-            return guardada.get();
-        }
-        ServicioContratado servicio = service.aceptarPropuesta(id, clienteId);
-        var cuerpo = new ServicioDtos.AceptarResponse(servicio.id(), servicio.estado().name());
-        guardarRespuesta(clave, "servicios.aceptar", clienteId, 200, cuerpo);
-        return ResponseEntity.ok(cuerpo);
+        return ejecutarIdempotente(claveHeader, "servicios.aceptar", cuerpo -> clienteId, 200, () -> {
+            ServicioContratado servicio = service.aceptarPropuesta(id, clienteId);
+            return new ServicioDtos.AceptarResponse(servicio.id(), servicio.estado().name());
+        });
     }
 
     @GetMapping("/servicios/{id}")

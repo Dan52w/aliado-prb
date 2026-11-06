@@ -7,6 +7,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.Ser
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.infrastructure.persistence.entity.HistorialEstadoServicioEntity;
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.infrastructure.persistence.entity.MensajeServicioEntity;
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.infrastructure.persistence.entity.ServicioEntity;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class ServicioPersistenceMapper {
@@ -44,7 +45,7 @@ public final class ServicioPersistenceMapper {
             he.setFecha(h.fecha());
             return he;
         }).toList();
-        e.setHistorial(new java.util.ArrayList<>(historial));
+        e.setHistorial(new ArrayList<>(historial));
         List<MensajeServicioEntity> mensajes = s.mensajes().stream().map(m -> {
             MensajeServicioEntity me = new MensajeServicioEntity();
             me.setId(m.id());
@@ -54,7 +55,7 @@ public final class ServicioPersistenceMapper {
             me.setFechaEnvio(m.fechaEnvio());
             return me;
         }).toList();
-        e.setMensajes(new java.util.ArrayList<>(mensajes));
+        e.setMensajes(new ArrayList<>(mensajes));
         return e;
     }
 }

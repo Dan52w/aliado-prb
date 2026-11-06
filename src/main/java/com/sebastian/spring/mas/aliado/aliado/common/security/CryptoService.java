@@ -1,5 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.common.security;
 
+import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -34,7 +35,8 @@ public class CryptoService {
             bytes = Base64.getDecoder().decode(claveBase64);
         }
         if (bytes.length != 32) {
-            throw new IllegalStateException("ALIADO_AES_KEY debe tener 32 bytes en Base64.");
+            throw new BusinessException(500, "CLAVE_CRIPTO_INVALIDA",
+                    "ALIADO_AES_KEY debe tener 32 bytes en Base64.");
         }
         this.clave = new SecretKeySpec(bytes, "AES");
     }
@@ -54,7 +56,7 @@ public class CryptoService {
             System.arraycopy(cifrado, 0, salida, IV_BYTES, cifrado.length);
             return Base64.getEncoder().encodeToString(salida);
         } catch (Exception ex) {
-            throw new IllegalStateException("No se pudo cifrar el dato.", ex);
+            throw new BusinessException(500, "CIFRADO_FALLIDO", "No se pudo cifrar el dato.");
         }
     }
 
@@ -71,7 +73,7 @@ public class CryptoService {
             byte[] plano = cipher.doFinal(datos, IV_BYTES, datos.length - IV_BYTES);
             return new String(plano, StandardCharsets.UTF_8);
         } catch (Exception ex) {
-            throw new IllegalStateException("No se pudo descifrar el dato.", ex);
+            throw new BusinessException(500, "DESCIFRADO_FALLIDO", "No se pudo descifrar el dato.");
         }
     }
 }

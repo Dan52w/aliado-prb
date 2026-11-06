@@ -2,6 +2,8 @@ package com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.infrastruc
 
 import com.sebastian.spring.mas.aliado.aliado.common.events.Eventos;
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.NotificacionPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.domain.model.Canal;
+import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.domain.model.TipoNotificacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.oportunidades.application.port.CompatibilidadPort;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -23,21 +25,21 @@ public class NotificacionEventListener {
     @EventListener
     public void alPublicarSolicitud(Eventos.SolicitudPublicada evento) {
         for (var prestadorId : compatibilidad.prestadoresCompatibles(evento.solicitudId())) {
-            notificaciones.registrar("NUEVA_OPORTUNIDAD", evento.solicitudId(), prestadorId, 1,
-                    "Nueva oportunidad compatible con tu perfil.", "PUSH");
+            notificaciones.registrar(TipoNotificacion.NUEVA_OPORTUNIDAD, evento.solicitudId(), prestadorId, 1,
+                    "Nueva oportunidad compatible con tu perfil.", Canal.PUSH);
         }
     }
 
     @EventListener
     public void alCrearPropuesta(Eventos.PropuestaCreada evento) {
-        notificaciones.registrar("PROPUESTA_RECIBIDA", evento.propuestaId(), evento.clienteId(), 1,
-                "Recibiste una nueva propuesta para tu solicitud.", "PUSH");
+        notificaciones.registrar(TipoNotificacion.PROPUESTA_RECIBIDA, evento.propuestaId(), evento.clienteId(), 1,
+                "Recibiste una nueva propuesta para tu solicitud.", Canal.PUSH);
     }
 
     @EventListener
     public void alAceptarPropuesta(Eventos.PropuestaAceptada evento) {
-        notificaciones.registrar("ACEPTACION_PROPUESTA", evento.servicioId(), evento.prestadorId(), 1,
-                "Tu propuesta fue aceptada. El servicio está contratado.", "PUSH");
+        notificaciones.registrar(TipoNotificacion.ACEPTACION_PROPUESTA, evento.servicioId(), evento.prestadorId(), 1,
+                "Tu propuesta fue aceptada. El servicio está contratado.", Canal.PUSH);
     }
 
     @EventListener
@@ -45,7 +47,7 @@ public class NotificacionEventListener {
         // La contraparte es quien no ejecutó la transición.
         var destinatario = evento.actorId().equals(evento.clienteId())
                 ? evento.prestadorId() : evento.clienteId();
-        notificaciones.registrar("CAMBIO_ESTADO_SERVICIO", evento.servicioId(), destinatario, 1,
-                "El servicio cambió de estado a " + evento.estadoNuevo() + ".", "PUSH");
+        notificaciones.registrar(TipoNotificacion.CAMBIO_ESTADO_SERVICIO, evento.servicioId(), destinatario, 1,
+                "El servicio cambió de estado a " + evento.estadoNuevo() + ".", Canal.PUSH);
     }
 }

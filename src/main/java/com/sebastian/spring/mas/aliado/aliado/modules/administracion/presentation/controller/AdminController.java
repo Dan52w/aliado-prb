@@ -1,9 +1,12 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.administracion.presentation.controller;
 
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
-import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.AdministracionService;
+import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.BloqueoCuentaService;
+import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.ModeracionService;
+import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.ReporteModeracionService;
+import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.RiesgoAuditoriaService;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.presentation.dto.AdminDtos;
-import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.CatalogoService;
+import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoAdminPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.reportes.domain.model.Reporte;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -24,12 +27,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/admin")
 public class AdminController {
-    private final CatalogoService catalogo;
-    private final AdministracionService admin;
+    private final CatalogoAdminPort catalogo;
+    private final ReporteModeracionService reportes;
+    private final BloqueoCuentaService bloqueos;
+    private final ModeracionService moderacion;
+    private final RiesgoAuditoriaService riesgo;
 
-    public AdminController(CatalogoService catalogo, AdministracionService admin) {
+    public AdminController(CatalogoAdminPort catalogo, ReporteModeracionService reportes,
+                           BloqueoCuentaService bloqueos, ModeracionService moderacion,
+                           RiesgoAuditoriaService riesgo) {
         this.catalogo = catalogo;
-        this.admin = admin;
+        this.reportes = reportes;
+        this.bloqueos = bloqueos;
+        this.moderacion = moderacion;
+        this.riesgo = riesgo;
     }
 
     private AdminDtos.ReporteResponse aReporte(Reporte r) {
@@ -93,45 +104,45 @@ public class AdminController {
     @GetMapping("/reportes")
     public ResponseEntity<List<AdminDtos.ReporteResponse>> colaReportes(
             @RequestParam(defaultValue = "PENDIENTE") String estado) {
-        return ResponseEntity.ok(admin.colaReportes(estado).stream().map(this::aReporte).toList());
+        return ResponseEntity.ok(reportes.colaReportes(estado).stream().map(this::aReporte).toList());
     }
 
     @GetMapping("/reportes/{id}")
     public ResponseEntity<AdminDtos.ReporteResponse> detalleReporte(@PathVariable UUID id) {
-        return ResponseEntity.ok(aReporte(admin.detalleReporte(id, SecurityUtils.actual().id())));
+        return ResponseEntity.ok(aReporte(reportes.detalleReporte(id, SecurityUtils.actual().id())));
     }
 
     @PostMapping("/reportes/{id}/resolver")
     public ResponseEntity<AdminDtos.ReporteResponse> resolverReporte(@PathVariable UUID id,
             @Valid @RequestBody AdminDtos.ResolverReporteRequest req) {
-        return ResponseEntity.ok(aReporte(admin.resolverReporte(id, SecurityUtils.actual().id(),
+        return ResponseEntity.ok(aReporte(reportes.resolverReporte(id, SecurityUtils.actual().id(),
                 req.resultado(), req.justificacion())));
     }
 
     @PostMapping("/usuarios/{id}/bloqueos")
     public ResponseEntity<AdminDtos.BloqueoResponse> bloquearUsuario(@PathVariable UUID id,
             @Valid @RequestBody AdminDtos.BloqueoRequest req) {
-        var b = admin.bloquearUsuario(id, SecurityUtils.actual().id(), req.motivo());
+        var b = bloqueos.bloquearUsuario(id, SecurityUtils.actual().id(), req.motivo());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new AdminDtos.BloqueoResponse(b.id(), b.usuarioId(), b.motivo(), b.activo()));
     }
 
     @PostMapping("/usuarios/{id}/bloqueos/{bloqueoId}/levantar")
     public ResponseEntity<Void> levantarBloqueo(@PathVariable UUID id, @PathVariable UUID bloqueoId) {
-        admin.levantarBloqueo(id, bloqueoId, SecurityUtils.actual().id());
+        bloqueos.levantarBloqueo(id, bloqueoId, SecurityUtils.actual().id());
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/moderacion")
     public ResponseEntity<Void> moderar(@Valid @RequestBody AdminDtos.ModeracionRequest req) {
-        admin.moderar(SecurityUtils.actual().id(), req.objetivoTipo(), req.objetivoId(), req.accion(), req.motivo());
+        moderacion.moderar(SecurityUtils.actual().id(), req.objetivoTipo(), req.objetivoId(), req.accion(), req.motivo());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/servicios/{id}/alto-riesgo")
     public ResponseEntity<AdminDtos.AltoRiesgoResponse> altoRiesgo(@PathVariable UUID id,
             @Valid @RequestBody AdminDtos.AltoRiesgoRequest req) {
-        var m = admin.marcarAltoRiesgo(id, SecurityUtils.actual().id(), req.criterio());
+        var m = riesgo.marcarAltoRiesgo(id, SecurityUtils.actual().id(), req.criterio());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new AdminDtos.AltoRiesgoResponse(m.id(), m.servicioId(), m.criterio(), m.activa()));
     }
@@ -139,7 +150,7 @@ public class AdminController {
     @GetMapping("/auditoria")
     public ResponseEntity<List<AdminDtos.AuditoriaResponse>> auditoria(
             @RequestParam(defaultValue = "50") int limite) {
-        return ResponseEntity.ok(admin.listarAuditoria(limite).stream()
+        return ResponseEntity.ok(riesgo.listarAuditoria(limite).stream()
                 .map(a -> new AdminDtos.AuditoriaResponse(a.id(), a.accion(), a.objetivoTipo(), a.objetivoId(),
                         a.detalle(), a.fecha(), a.traceId())).toList());
     }
@@ -147,7 +158,7 @@ public class AdminController {
     @PostMapping("/verificaciones/{id}/resolver")
     public ResponseEntity<Void> resolverVerificacion(@PathVariable UUID id,
             @Valid @RequestBody AdminDtos.ResolverVerificacionRequest req) {
-        admin.resolverVerificacion(id, SecurityUtils.actual().id(), req.estado());
+        moderacion.resolverVerificacion(id, SecurityUtils.actual().id(), req.estado());
         return ResponseEntity.noContent().build();
     }
 }

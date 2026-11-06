@@ -33,7 +33,7 @@ public class LocalArchivoStorageAdapter implements ArchivoStorageService {
             Files.write(raiz.resolve(clave), contenido);
             return clave;
         } catch (IOException ex) {
-            throw new BusinessException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "ERROR_ALMACENAMIENTO", "No se pudo guardar el archivo.");
+            throw new BusinessException(500, "ERROR_ALMACENAMIENTO", "No se pudo guardar el archivo.");
         }
     }
 

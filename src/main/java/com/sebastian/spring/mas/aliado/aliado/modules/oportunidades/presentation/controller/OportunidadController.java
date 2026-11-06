@@ -1,9 +1,9 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.oportunidades.presentation.controller;
 
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
-import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.NotificacionService;
 import com.sebastian.spring.mas.aliado.aliado.modules.oportunidades.application.OportunidadService;
 import com.sebastian.spring.mas.aliado.aliado.modules.oportunidades.domain.model.Oportunidad;
+import com.sebastian.spring.mas.aliado.aliado.modules.oportunidades.presentation.dto.OportunidadDtos;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -18,29 +18,28 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class OportunidadController {
     private final OportunidadService service;
-    private final NotificacionService notificaciones;
 
-    public OportunidadController(OportunidadService service, NotificacionService notificaciones) {
+    public OportunidadController(OportunidadService service) {
         this.service = service;
-        this.notificaciones = notificaciones;
+    }
+
+    private OportunidadDtos.OportunidadResponse aRespuesta(Oportunidad o) {
+        return new OportunidadDtos.OportunidadResponse(o.solicitudId(), o.categoria(), o.zonaAproximada(),
+                o.urgencia(), o.descripcion(), o.fechaCreacion(), o.fotos());
     }
 
     @GetMapping("/oportunidades")
-    public ResponseEntity<List<Oportunidad>> listar(@RequestParam(required = false) String categoria,
-                                                    @RequestParam(required = false) String urgencia) {
+    public ResponseEntity<List<OportunidadDtos.OportunidadResponse>> listar(
+            @RequestParam(required = false) String categoria,
+            @RequestParam(required = false) String urgencia) {
         SecurityUtils.exigirRol("PRESTADOR");
-        return ResponseEntity.ok(service.listar(SecurityUtils.actual().id(), categoria, urgencia));
+        return ResponseEntity.ok(service.listar(SecurityUtils.actual().id(), categoria, urgencia).stream()
+                .map(this::aRespuesta).toList());
     }
 
     @GetMapping("/oportunidades/{solicitudId}")
-    public ResponseEntity<Oportunidad> detalle(@PathVariable UUID solicitudId) {
+    public ResponseEntity<OportunidadDtos.OportunidadResponse> detalle(@PathVariable UUID solicitudId) {
         SecurityUtils.exigirRol("PRESTADOR");
-        return ResponseEntity.ok(service.detalle(solicitudId, SecurityUtils.actual().id()));
-    }
-
-    @GetMapping("/notificaciones/oportunidades")
-    public ResponseEntity<List<NotificacionService.NotificacionDto>> notificacionesOportunidades() {
-        SecurityUtils.exigirRol("PRESTADOR");
-        return ResponseEntity.ok(notificaciones.listarPorTipo(SecurityUtils.actual().id(), "NUEVA_OPORTUNIDAD"));
+        return ResponseEntity.ok(aRespuesta(service.detalle(solicitudId, SecurityUtils.actual().id())));
     }
 }

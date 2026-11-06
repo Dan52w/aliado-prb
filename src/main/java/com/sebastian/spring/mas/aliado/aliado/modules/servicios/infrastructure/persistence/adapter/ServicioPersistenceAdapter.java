@@ -7,6 +7,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.servicios.infrastructure.p
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -30,6 +31,12 @@ public class ServicioPersistenceAdapter implements ServicioRepository {
     @Override
     public List<ServicioContratado> porUsuario(UUID usuarioId) {
         return jpa.findByUsuario(usuarioId).stream().map(ServicioPersistenceMapper::aDominio).toList();
+    }
+
+    @Override
+    public List<ServicioContratado> porUsuario(UUID usuarioId, int pagina, int tamano) {
+        return jpa.findByUsuario(usuarioId, PageRequest.of(Math.max(0, pagina), Math.max(1, tamano))).stream()
+                .map(ServicioPersistenceMapper::aDominio).toList();
     }
 
     @Override

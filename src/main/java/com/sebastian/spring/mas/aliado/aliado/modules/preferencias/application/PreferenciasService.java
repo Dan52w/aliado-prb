@@ -4,14 +4,15 @@ import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException
 import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoStorageService;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.RolConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.port.ConfianzaConsultaPort;
-import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.NotificacionService;
+import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.NotificacionConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.model.DescargaHistorial;
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.model.PreferenciaNotificacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.model.TipoAviso;
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.repository.DescargaRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.repository.PreferenciaRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.application.port.ServicioLecturaPort;
-import java.nio.charset.StandardCharsets;
+import com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.EstadoServicio;
+import com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.ServicioContratado;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -31,13 +32,13 @@ public class PreferenciasService {
     private final DescargaRepository descargas;
     private final ServicioLecturaPort servicios;
     private final ConfianzaConsultaPort confianza;
-    private final NotificacionService notificaciones;
+    private final NotificacionConsultaPort notificaciones;
     private final RolConsultaPort roles;
     private final ArchivoStorageService storage;
 
     public PreferenciasService(PreferenciaRepository preferencias, DescargaRepository descargas,
                                ServicioLecturaPort servicios, ConfianzaConsultaPort confianza,
-                               NotificacionService notificaciones, RolConsultaPort roles,
+                               NotificacionConsultaPort notificaciones, RolConsultaPort roles,
                                ArchivoStorageService storage) {
         this.preferencias = preferencias;
         this.descargas = descargas;
@@ -88,28 +89,14 @@ public class PreferenciasService {
     }
 
     @Transactional(readOnly = true)
-    public List<com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.ServicioContratado> historial(UUID usuarioId, int pagina,
-                                                                                       int tamano) {
-        List<com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.ServicioContratado> todos =
-                servicios.porUsuario(usuarioId);
-        int inicio = Math.max(0, pagina * tamano);
-        if (inicio >= todos.size()) {
-            return List.of();
-        }
-        return todos.subList(inicio, Math.min(todos.size(), inicio + tamano));
+    public List<ServicioContratado> historial(UUID usuarioId, int pagina, int tamano) {
+        return servicios.porUsuario(usuarioId, pagina, tamano);
     }
 
     @Transactional
     public DescargaHistorial exportarHistorial(UUID usuarioId) {
-        List<com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.ServicioContratado> todos =
-                servicios.porUsuario(usuarioId);
-        StringBuilder csv = new StringBuilder("servicio_id,estado,fecha_contratacion\n");
-        for (var s : todos) {
-            csv.append(s.id()).append(',').append(s.estado().name()).append(',')
-                    .append(s.fechaContratacion()).append('\n');
-        }
-        String clave = storage.guardar("historial.csv", "text/csv",
-                csv.toString().getBytes(StandardCharsets.UTF_8));
+        List<ServicioContratado> todos = servicios.porUsuario(usuarioId);
+        String clave = storage.guardar("historial.csv", "text/csv", HistorialCsvExporter.exportar(todos));
         return descargas.guardar(new DescargaHistorial(UUID.randomUUID(), usuarioId, OffsetDateTime.now(),
                 clave, "LISTA"));
     }
@@ -120,11 +107,11 @@ public class PreferenciasService {
             throw new BusinessException.Forbidden("SOLO_PRESTADOR",
                     "Los indicadores son solo para prestadores.");
         }
-        List<com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model.ServicioContratado> todos =
-                servicios.porUsuario(prestadorId);
-        long finalizados = todos.stream().filter(s -> s.estado().name().equals("FINALIZADO")).count();
+        List<ServicioContratado> todos = servicios.porUsuario(prestadorId);
+        long finalizados = todos.stream().filter(s -> s.estado() == EstadoServicio.FINALIZADO).count();
         long enCurso = todos.stream()
-                .filter(s -> s.estado().name().equals("EN_EJECUCION") || s.estado().name().equals("CONTRATADO"))
+                .filter(s -> s.estado() == EstadoServicio.EN_EJECUCION
+                        || s.estado() == EstadoServicio.CONTRATADO)
                 .count();
         var confianzaPrestador = confianza.confianzaDe(prestadorId);
         return new Indicadores(todos.size(), enCurso, finalizados,
@@ -138,7 +125,7 @@ public class PreferenciasService {
         servicios.porUsuario(usuarioId).forEach(s -> actividades.add(new Actividad("SERVICIO",
                 "Servicio " + s.estado().name().toLowerCase(), s.fechaContratacion())));
         notificaciones.listarPropias(usuarioId).forEach(n -> actividades.add(
-                new Actividad("NOTIFICACION", n.tipo() + ": " + n.detalle(), n.fechaGeneracion())));
+                new Actividad("NOTIFICACION", n.tipo().name() + ": " + n.detalle(), n.fechaGeneracion())));
         return actividades.stream()
                 .sorted(Comparator.comparing(Actividad::fecha).reversed())
                 .limit(20)

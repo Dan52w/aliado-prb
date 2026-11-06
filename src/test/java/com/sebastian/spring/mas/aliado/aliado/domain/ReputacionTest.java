@@ -1,11 +1,9 @@
 package com.sebastian.spring.mas.aliado.aliado.domain;
 
-import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoStorageService;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.ConfianzaService;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.model.Calificacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.model.Reputacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.repository.CalificacionRepository;
-import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.repository.DocumentoVerificacionRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.repository.ReputacionRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.repository.ResenaRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.repository.SolicitudVerificacionRepository;
@@ -45,17 +43,12 @@ class ReputacionTest {
     @Mock
     private SolicitudVerificacionRepository verificaciones;
     @Mock
-    private DocumentoVerificacionRepository documentos;
-    @Mock
     private ServicioLecturaPort servicios;
-    @Mock
-    private ArchivoStorageService storage;
     @Mock
     private ReportePort reportes;
 
     private ConfianzaService servicio() {
-        return new ConfianzaService(calificaciones, resenas, reputaciones, verificaciones, documentos,
-                servicios, storage, reportes);
+        return new ConfianzaService(calificaciones, resenas, reputaciones, verificaciones, servicios, reportes);
     }
 
     @Test

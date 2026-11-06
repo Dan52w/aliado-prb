@@ -4,7 +4,7 @@ import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException
 import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoStorageService;
 import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoValidacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.UsuarioConsultaPort;
-import com.sebastian.spring.mas.aliado.aliado.modules.confianza.domain.repository.ResenaRepository;
+import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.port.ResenaConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.reportes.application.port.ReporteAdminPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.reportes.application.port.ReportePort;
 import com.sebastian.spring.mas.aliado.aliado.modules.reportes.domain.model.EstadoReporte;
@@ -29,13 +29,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReporteService implements ReportePort, ReporteAdminPort {
     private final ReporteRepository reportes;
     private final EvidenciaReporteRepository evidencias;
-    private final ResenaRepository resenas;
+    private final ResenaConsultaPort resenas;
     private final UsuarioConsultaPort usuarios;
     private final ServicioLecturaPort servicios;
     private final ArchivoStorageService storage;
 
     public ReporteService(ReporteRepository reportes, EvidenciaReporteRepository evidencias,
-                          ResenaRepository resenas, UsuarioConsultaPort usuarios,
+                          ResenaConsultaPort resenas, UsuarioConsultaPort usuarios,
                           ServicioLecturaPort servicios, ArchivoStorageService storage) {
         this.reportes = reportes;
         this.evidencias = evidencias;
@@ -45,9 +45,7 @@ public class ReporteService implements ReportePort, ReporteAdminPort {
         this.storage = storage;
     }
 
-    public record CreacionReporte(UUID reporteId, boolean consolidado) {}
-
-    private CreacionReporte crear(TipoReporte tipo, UUID objetivoId, UUID reportanteId, String motivo) {
+    private UUID crear(TipoReporte tipo, UUID objetivoId, UUID reportanteId, String motivo) {
         if (motivo == null || motivo.isBlank()) {
             throw new BusinessException.BadRequest("MOTIVO_REQUERIDO", "El motivo es obligatorio.");
         }
@@ -56,7 +54,7 @@ public class ReporteService implements ReportePort, ReporteAdminPort {
         }
         var existente = reportes.abiertoEquivalente(reportanteId, tipo.name(), objetivoId, motivo.trim());
         if (existente.isPresent()) {
-            return new CreacionReporte(existente.get().id(), true);
+            return existente.get().id();
         }
         OffsetDateTime ahora = OffsetDateTime.now();
         Reporte reporte = new Reporte(UUID.randomUUID(), tipo, reportanteId,
@@ -64,15 +62,16 @@ public class ReporteService implements ReportePort, ReporteAdminPort {
                 tipo == TipoReporte.USUARIO ? objetivoId : null,
                 tipo == TipoReporte.SERVICIO ? objetivoId : null,
                 motivo.trim(), EstadoReporte.PENDIENTE, null, null, null, ahora, null, 0);
-        return new CreacionReporte(reportes.guardar(reporte).id(), false);
+        return reportes.guardar(reporte).id();
     }
 
     @Override
     @Transactional
     public UUID crearReporteResena(UUID resenaId, UUID reportanteId, String motivo) {
-        resenas.porId(resenaId)
-                .orElseThrow(() -> new BusinessException.NotFound("RESENA_NO_ENCONTRADA", "Reseña no encontrada."));
-        return crear(TipoReporte.RESENA, resenaId, reportanteId, motivo).reporteId();
+        if (!resenas.existe(resenaId)) {
+            throw new BusinessException.NotFound("RESENA_NO_ENCONTRADA", "Reseña no encontrada.");
+        }
+        return crear(TipoReporte.RESENA, resenaId, reportanteId, motivo);
     }
 
     @Override
@@ -84,7 +83,7 @@ public class ReporteService implements ReportePort, ReporteAdminPort {
         if (usuarioObjetivoId.equals(reportanteId)) {
             throw new BusinessException.BadRequest("AUTO_REPORTE", "No puedes reportarte a ti mismo.");
         }
-        return crear(TipoReporte.USUARIO, usuarioObjetivoId, reportanteId, motivo).reporteId();
+        return crear(TipoReporte.USUARIO, usuarioObjetivoId, reportanteId, motivo);
     }
 
     @Override
@@ -97,7 +96,7 @@ public class ReporteService implements ReportePort, ReporteAdminPort {
             throw new BusinessException.Forbidden("NO_PARTICIPANTE",
                     "Solo un participante del servicio puede reportarlo.");
         }
-        return crear(TipoReporte.SERVICIO, servicioId, reportanteId, motivo).reporteId();
+        return crear(TipoReporte.SERVICIO, servicioId, reportanteId, motivo);
     }
 
     @Transactional

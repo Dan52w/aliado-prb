@@ -2,6 +2,7 @@ package com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.domain.model;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,14 +30,14 @@ public record Solicitud(UUID id, UUID clienteId, UUID categoriaId, UUID zonaId, 
             throw new BusinessException.Conflict("TRANSICION_INVALIDA",
                     "No se puede pasar de " + estado + " a " + nuevo + ".");
         }
-        var nuevoHistorial = new java.util.ArrayList<>(historial);
+        var nuevoHistorial = new ArrayList<>(historial);
         nuevoHistorial.add(new HistorialEstadoSolicitud(UUID.randomUUID(), id, estado, nuevo, ahora));
         return new Solicitud(id, clienteId, categoriaId, zonaId, descripcion, urgencia, nuevo,
                 fechaCreacion, ahora, version, fotos, List.copyOf(nuevoHistorial));
     }
 
     public Solicitud conFoto(FotoSolicitud foto) {
-        var nuevas = new java.util.ArrayList<>(fotos);
+        var nuevas = new ArrayList<>(fotos);
         nuevas.add(foto);
         return new Solicitud(id, clienteId, categoriaId, zonaId, descripcion, urgencia, estado,
                 fechaCreacion, fechaActualizacion, version, List.copyOf(nuevas), historial);

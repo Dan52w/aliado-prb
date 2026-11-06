@@ -8,6 +8,5 @@ import java.util.UUID;
 /** Contrato público del perfil profesional para descubrimiento y oportunidades. */
 public interface PerfilProfesionalConsultaPort {
     Optional<PerfilProfesional> porPrestadorId(UUID prestadorId);
-    Optional<PerfilProfesional> porId(UUID id);
     List<PerfilProfesional> visiblesPorCategoriaYZona(UUID categoriaId, UUID zonaId);
 }

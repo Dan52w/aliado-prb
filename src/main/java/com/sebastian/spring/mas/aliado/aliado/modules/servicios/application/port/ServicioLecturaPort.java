@@ -9,5 +9,6 @@ import java.util.UUID;
 public interface ServicioLecturaPort {
     Optional<ServicioContratado> porId(UUID id);
     List<ServicioContratado> porUsuario(UUID usuarioId);
+    List<ServicioContratado> porUsuario(UUID usuarioId, int pagina, int tamano);
     boolean esParticipante(UUID servicioId, UUID usuarioId);
 }

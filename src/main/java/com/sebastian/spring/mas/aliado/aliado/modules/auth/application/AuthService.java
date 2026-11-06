@@ -1,7 +1,10 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.auth.application;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.CuentaBloqueoPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.PerfilBasePort;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.RolConsultaPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.SesionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.UsuarioConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.model.Consentimiento;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.model.EstadoCuenta;
@@ -11,7 +14,6 @@ import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.model.Usuario;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.repository.ConsentimientoRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.repository.TokenRecuperacionRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.repository.UsuarioRepository;
-import com.sebastian.spring.mas.aliado.aliado.modules.perfil.application.PerfilService;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
@@ -19,7 +21,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,19 +31,19 @@ import org.springframework.transaction.annotation.Transactional;
  * La recuperación no confirma ni niega la existencia de la cuenta (FR-006).
  */
 @Service
-public class AuthService implements UsuarioConsultaPort, RolConsultaPort {
+public class AuthService implements UsuarioConsultaPort, RolConsultaPort, CuentaBloqueoPort {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UsuarioRepository usuarios;
     private final ConsentimientoRepository consentimientos;
     private final TokenRecuperacionRepository tokens;
-    private final SesionService sesionService;
-    private final PerfilService perfilService;
+    private final SesionPort sesionService;
+    private final PerfilBasePort perfilService;
     private final PasswordEncoder passwordEncoder;
 
     public AuthService(UsuarioRepository usuarios, ConsentimientoRepository consentimientos,
-                       TokenRecuperacionRepository tokens, SesionService sesionService,
-                       @Lazy PerfilService perfilService, PasswordEncoder passwordEncoder) {
+                       TokenRecuperacionRepository tokens, SesionPort sesionService,
+                       PerfilBasePort perfilService, PasswordEncoder passwordEncoder) {
         this.usuarios = usuarios;
         this.consentimientos = consentimientos;
         this.tokens = tokens;
@@ -143,9 +144,14 @@ public class AuthService implements UsuarioConsultaPort, RolConsultaPort {
     public void crearAdministrador(String email, String password) {
         String correo = Usuario.normalizarEmail(email);
         if (usuarios.existeEmail(correo)) {
-            throw new IllegalStateException("La cuenta administradora ya existe.");
+            throw new BusinessException.Conflict("CORREO_YA_REGISTRADO",
+                    "La cuenta administradora ya existe.");
         }
-        Usuario.validarPassword(password);
+        try {
+            Usuario.validarPassword(password);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException.BadRequest("PASSWORD_INVALIDA", ex.getMessage());
+        }
         OffsetDateTime ahora = OffsetDateTime.now();
         Usuario admin = new Usuario(UUID.randomUUID(), correo, passwordEncoder.encode(password),
                 Rol.ADMINISTRADOR, EstadoCuenta.ACTIVA, ahora);
@@ -154,6 +160,7 @@ public class AuthService implements UsuarioConsultaPort, RolConsultaPort {
         perfilService.crearPerfilBase(admin.id());
     }
 
+    @Override
     @Transactional
     public void bloquearCuenta(UUID usuarioId) {
         Usuario usuario = usuarios.porId(usuarioId)
@@ -163,6 +170,7 @@ public class AuthService implements UsuarioConsultaPort, RolConsultaPort {
         sesionService.cerrarSesionesDeUsuario(usuarioId);
     }
 
+    @Override
     @Transactional
     public void desbloquearCuenta(UUID usuarioId) {
         Usuario usuario = usuarios.porId(usuarioId)

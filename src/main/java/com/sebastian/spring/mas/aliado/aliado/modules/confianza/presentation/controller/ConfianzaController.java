@@ -2,6 +2,7 @@ package com.sebastian.spring.mas.aliado.aliado.modules.confianza.presentation.co
 
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.ConfianzaService;
+import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.VerificacionService;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.presentation.dto.ConfianzaDtos;
 import jakarta.validation.Valid;
 import java.io.IOException;
@@ -25,9 +26,11 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1")
 public class ConfianzaController {
     private final ConfianzaService service;
+    private final VerificacionService verificaciones;
 
-    public ConfianzaController(ConfianzaService service) {
+    public ConfianzaController(ConfianzaService service, VerificacionService verificaciones) {
         this.service = service;
+        this.verificaciones = verificaciones;
     }
 
     @PostMapping("/servicios/{servicioId}/calificacion")
@@ -50,19 +53,19 @@ public class ConfianzaController {
     public ResponseEntity<ConfianzaDtos.ConfianzaResponse> confianza(@PathVariable UUID prestadorId) {
         var info = service.confianzaDe(prestadorId);
         return ResponseEntity.ok(new ConfianzaDtos.ConfianzaResponse(
-                info.reputacion().valor(), info.reputacion().cantidad(), info.nivelVerificacion()));
+                info.reputacion().valor(), info.reputacion().cantidad(), info.nivelVerificacion().name()));
     }
 
     @PostMapping(value = "/verificaciones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ConfianzaDtos.VerificacionResponse> solicitarVerificacion(
             @RequestPart("documentos") List<MultipartFile> documentos) throws IOException {
         SecurityUtils.exigirRol("PRESTADOR");
-        List<ConfianzaService.ArchivoSubido> archivos = new ArrayList<>();
+        List<VerificacionService.ArchivoSubido> archivos = new ArrayList<>();
         for (MultipartFile archivo : documentos) {
-            archivos.add(new ConfianzaService.ArchivoSubido(archivo.getOriginalFilename(),
+            archivos.add(new VerificacionService.ArchivoSubido(archivo.getOriginalFilename(),
                     archivo.getContentType(), archivo.getBytes()));
         }
-        var solicitud = service.solicitarVerificacion(SecurityUtils.actual().id(), archivos);
+        var solicitud = verificaciones.solicitarVerificacion(SecurityUtils.actual().id(), archivos);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(new ConfianzaDtos.VerificacionResponse(solicitud.id(), solicitud.estado().name()));
     }
@@ -70,7 +73,7 @@ public class ConfianzaController {
     @GetMapping("/verificaciones/mia")
     public ResponseEntity<ConfianzaDtos.VerificacionResponse> miVerificacion() {
         SecurityUtils.exigirRol("PRESTADOR");
-        var solicitud = service.miVerificacion(SecurityUtils.actual().id());
+        var solicitud = verificaciones.miVerificacion(SecurityUtils.actual().id());
         return ResponseEntity.ok(new ConfianzaDtos.VerificacionResponse(solicitud.id(), solicitud.estado().name()));
     }
 

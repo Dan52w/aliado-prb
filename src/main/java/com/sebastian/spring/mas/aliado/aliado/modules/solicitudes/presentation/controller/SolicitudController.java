@@ -2,7 +2,7 @@ package com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.presentation.
 
 import com.sebastian.spring.mas.aliado.aliado.common.web.BaseController;
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
-import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.IdempotencyService;
+import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyService;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.application.SolicitudService;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.domain.model.Solicitud;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.presentation.dto.SolicitudDtos;
@@ -49,17 +49,11 @@ public class SolicitudController extends BaseController {
                                    @RequestHeader(value = "Idempotency-Key", required = false) String claveHeader) {
         SecurityUtils.exigirRol("CLIENTE");
         UUID clienteId = SecurityUtils.actual().id();
-        UUID clave = claveIdempotencia(claveHeader);
-        var guardada = clave == null ? java.util.Optional.<ResponseEntity<com.fasterxml.jackson.databind.JsonNode>>empty()
-                : respuestaGuardada(clave, "solicitudes.crear");
-        if (guardada.isPresent()) {
-            return guardada.get();
-        }
-        Solicitud creada = solicitudService.crear(clienteId, req.categoriaId(), req.descripcion(),
-                req.zonaId(), req.urgencia(), req.estadoDeseado());
-        var cuerpo = aRespuesta(creada);
-        guardarRespuesta(clave, "solicitudes.crear", clienteId, 201, cuerpo);
-        return ResponseEntity.status(HttpStatus.CREATED).body(cuerpo);
+        return ejecutarIdempotente(claveHeader, "solicitudes.crear", cuerpo -> clienteId, 201, () -> {
+            Solicitud creada = solicitudService.crear(clienteId, req.categoriaId(), req.descripcion(),
+                    req.zonaId(), req.urgencia(), req.estadoDeseado());
+            return aRespuesta(creada);
+        });
     }
 
     @PutMapping("/{id}")

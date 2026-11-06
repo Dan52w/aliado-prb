@@ -55,12 +55,6 @@ public class AdministracionPersistenceAdapter implements BloqueoRepository, Acci
     }
 
     @Override
-    public List<AccionModeracion> porObjetivo(String objetivoTipo, UUID objetivoId) {
-        return acciones.findByObjetivoTipoAndObjetivoId(objetivoTipo, objetivoId).stream()
-                .map(AdministracionPersistenceMapper::aDominio).toList();
-    }
-
-    @Override
     public AccionModeracion guardar(AccionModeracion accion) {
         return AdministracionPersistenceMapper.aDominio(
                 acciones.save(AdministracionPersistenceMapper.aEntidad(accion)));

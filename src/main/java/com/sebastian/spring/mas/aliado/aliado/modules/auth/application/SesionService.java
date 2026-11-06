@@ -1,5 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.auth.application;
 
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.SesionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.model.EstadoSesion;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.model.Sesion;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.model.Usuario;
@@ -23,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * al iniciar sesión se cierran las sesiones activas anteriores del usuario.
  */
 @Service
-public class SesionService {
+public class SesionService implements SesionPort {
     private final SesionRepository sesiones;
     private final UsuarioRepository usuarios;
     private final int ttlHoras;
@@ -46,6 +47,7 @@ public class SesionService {
     }
 
     /** Crea una sesión y devuelve el token en claro (única vez que existe fuera de BD). */
+    @Override
     @Transactional
     public String crearSesion(UUID usuarioId) {
         OffsetDateTime ahora = OffsetDateTime.now();
@@ -62,6 +64,7 @@ public class SesionService {
     }
 
     /** Valida un token opaco: sesión activa, no vencida y cuenta no bloqueada. */
+    @Override
     @Transactional
     public Optional<Usuario> validar(String token) {
         if (token == null || token.isBlank()) {
@@ -82,6 +85,7 @@ public class SesionService {
                 .filter(usuario -> !usuario.bloqueado());
     }
 
+    @Override
     @Transactional
     public boolean cerrarSesion(String token) {
         if (token == null || token.isBlank()) {
@@ -96,6 +100,7 @@ public class SesionService {
                 .orElse(false);
     }
 
+    @Override
     @Transactional
     public void cerrarSesionesDeUsuario(UUID usuarioId) {
         OffsetDateTime ahora = OffsetDateTime.now();

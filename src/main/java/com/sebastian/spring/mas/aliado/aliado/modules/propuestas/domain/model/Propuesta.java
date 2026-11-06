@@ -9,6 +9,13 @@ public record Propuesta(UUID id, UUID solicitudId, UUID prestadorId, String disp
                         EstadoPropuesta estado, OffsetDateTime fechaCreacion, OffsetDateTime fechaActualizacion,
                         int version) {
 
+    public Propuesta editada(String disponibilidad, String mensaje, OffsetDateTime ahora) {
+        return new Propuesta(id, solicitudId, prestadorId,
+                disponibilidad == null ? this.disponibilidad : disponibilidad.trim(),
+                mensaje == null ? this.mensaje : mensaje, EstadoPropuesta.ACTIVA,
+                fechaCreacion, ahora, version);
+    }
+
     public Propuesta retirar(OffsetDateTime ahora) {
         exigirActiva();
         return new Propuesta(id, solicitudId, prestadorId, disponibilidad, mensaje,

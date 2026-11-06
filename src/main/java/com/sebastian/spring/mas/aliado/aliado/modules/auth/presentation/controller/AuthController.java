@@ -1,17 +1,15 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.auth.presentation.controller;
 
+import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import com.sebastian.spring.mas.aliado.aliado.common.web.BaseController;
-import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.AuthService;
-import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.IdempotencyService;
-import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.SesionService;
+import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyService;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.SesionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.model.Rol;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.presentation.dto.AuthDtos;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,9 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController extends BaseController {
     private final AuthService authService;
-    private final SesionService sesionService;
+    private final SesionPort sesionService;
 
-    public AuthController(AuthService authService, SesionService sesionService,
+    public AuthController(AuthService authService, SesionPort sesionService,
                           ObjectMapper objectMapper, IdempotencyService idempotencyService) {
         super(objectMapper, idempotencyService);
         this.authService = authService;
@@ -36,23 +34,17 @@ public class AuthController extends BaseController {
     @PostMapping("/registro")
     public ResponseEntity<?> registro(@Valid @RequestBody AuthDtos.RegistroRequest req,
                                      @RequestHeader(value = "Idempotency-Key", required = false) String claveHeader) {
-        UUID clave = claveIdempotencia(claveHeader);
-        var guardada = clave == null ? java.util.Optional.<ResponseEntity<com.fasterxml.jackson.databind.JsonNode>>empty()
-                : respuestaGuardada(clave, "auth.registro");
-        if (guardada.isPresent()) {
-            return guardada.get();
-        }
         Rol rol;
         try {
             rol = Rol.valueOf(req.rol());
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(new AuthDtos.MensajeResponse("Rol inválido."));
+            throw new BusinessException.BadRequest("ROL_INVALIDO", "Rol inválido.");
         }
-        AuthService.RegistroResultado resultado = authService.registrar(
-                req.email(), req.password(), rol, req.aceptaTerminos(), req.versionTerminos());
-        var cuerpo = new AuthDtos.RegistroResponse(resultado.id(), resultado.email(), resultado.rol());
-        guardarRespuesta(clave, "auth.registro", resultado.id(), 201, cuerpo);
-        return ResponseEntity.status(HttpStatus.CREATED).body(cuerpo);
+        return ejecutarIdempotente(claveHeader, "auth.registro", AuthDtos.RegistroResponse::id, 201, () -> {
+            AuthService.RegistroResultado resultado = authService.registrar(
+                    req.email(), req.password(), rol, req.aceptaTerminos(), req.versionTerminos());
+            return new AuthDtos.RegistroResponse(resultado.id(), resultado.email(), resultado.rol());
+        });
     }
 
     @PostMapping("/login")

@@ -8,6 +8,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.domain.model.U
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.infrastructure.persistence.entity.FotoSolicitudEntity;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.infrastructure.persistence.entity.HistorialEstadoSolicitudEntity;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.infrastructure.persistence.entity.SolicitudEntity;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class SolicitudPersistenceMapper {
@@ -46,7 +47,7 @@ public final class SolicitudPersistenceMapper {
             fe.setOrden(f.orden());
             return fe;
         }).toList();
-        e.setFotos(new java.util.ArrayList<>(fotos));
+        e.setFotos(new ArrayList<>(fotos));
         List<HistorialEstadoSolicitudEntity> historial = s.historial().stream().map(h -> {
             HistorialEstadoSolicitudEntity he = new HistorialEstadoSolicitudEntity();
             he.setId(h.id());
@@ -56,7 +57,7 @@ public final class SolicitudPersistenceMapper {
             he.setFecha(h.fecha());
             return he;
         }).toList();
-        e.setHistorial(new java.util.ArrayList<>(historial));
+        e.setHistorial(new ArrayList<>(historial));
         return e;
     }
 }

@@ -42,17 +42,6 @@ public class ServicioService implements ServicioConsultaPort, ServicioLecturaPor
         this.eventos = eventos;
     }
 
-    @Transactional(readOnly = true)
-    public List<Propuesta> propuestasDeSolicitud(UUID solicitudId, UUID clienteId) {
-        var solicitud = solicitudes.porId(solicitudId)
-                .orElseThrow(() -> new BusinessException.NotFound("SOLICITUD_NO_ENCONTRADA",
-                        "Solicitud no encontrada."));
-        if (!solicitud.clienteId().equals(clienteId)) {
-            throw new BusinessException.NotFound("SOLICITUD_NO_ENCONTRADA", "Solicitud no encontrada.");
-        }
-        return propuestas.activasDeSolicitud(solicitudId);
-    }
-
     @Transactional
     public ServicioContratado aceptarPropuesta(UUID propuestaId, UUID clienteId) {
         Propuesta propuesta = propuestas.porId(propuestaId)
@@ -76,16 +65,12 @@ public class ServicioService implements ServicioConsultaPort, ServicioLecturaPor
                     "La solicitud ya tiene un servicio contratado.");
         }
         OffsetDateTime ahora = OffsetDateTime.now();
-        ServicioContratado servicio = new ServicioContratado(UUID.randomUUID(), solicitud.id(), propuesta.id(),
+        UUID servicioId = UUID.randomUUID();
+        ServicioContratado servicio = new ServicioContratado(servicioId, solicitud.id(), propuesta.id(),
                 clienteId, propuesta.prestadorId(), EstadoServicio.CONTRATADO, true, ahora, 0,
-                List.of(new HistorialEstadoServicio(UUID.randomUUID(), null, null, EstadoServicio.CONTRATADO,
-                        clienteId, ahora)), List.of());
-        // El historial inicial referencia el servicio recién creado.
-        ServicioContratado conHistorial = new ServicioContratado(servicio.id(), solicitud.id(), propuesta.id(),
-                clienteId, propuesta.prestadorId(), EstadoServicio.CONTRATADO, true, ahora, 0,
-                List.of(new HistorialEstadoServicio(UUID.randomUUID(), servicio.id(), null,
+                List.of(new HistorialEstadoServicio(UUID.randomUUID(), servicioId, null,
                         EstadoServicio.CONTRATADO, clienteId, ahora)), List.of());
-        ServicioContratado guardado = servicios.guardar(conHistorial);
+        ServicioContratado guardado = servicios.guardar(servicio);
         propuestas.marcarAceptada(propuesta.id());
         propuestas.cerrarActivasDeSolicitud(solicitud.id(), propuesta.id());
         solicitudes.marcarContratada(solicitud.id());
@@ -160,12 +145,7 @@ public class ServicioService implements ServicioConsultaPort, ServicioLecturaPor
         }
         MensajeServicio mensaje = new MensajeServicio(UUID.randomUUID(), servicioId, remitenteId,
                 contenido.trim(), OffsetDateTime.now());
-        var mensajes = new java.util.ArrayList<>(servicio.mensajes());
-        mensajes.add(mensaje);
-        servicios.guardar(new ServicioContratado(servicio.id(), servicio.solicitudId(), servicio.propuestaId(),
-                servicio.clienteId(), servicio.prestadorId(), servicio.estado(),
-                servicio.comunicacionHabilitada(), servicio.fechaContratacion(), servicio.version(),
-                servicio.historial(), List.copyOf(mensajes)));
+        servicios.guardar(servicio.conMensaje(mensaje));
         return mensaje;
     }
 
@@ -202,6 +182,11 @@ public class ServicioService implements ServicioConsultaPort, ServicioLecturaPor
     @Override
     public List<ServicioContratado> porUsuario(UUID usuarioId) {
         return servicios.porUsuario(usuarioId);
+    }
+
+    @Override
+    public List<ServicioContratado> porUsuario(UUID usuarioId, int pagina, int tamano) {
+        return servicios.porUsuario(usuarioId, pagina, tamano);
     }
 
     @Override

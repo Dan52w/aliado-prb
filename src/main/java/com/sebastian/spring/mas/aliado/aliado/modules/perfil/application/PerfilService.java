@@ -1,6 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.perfil.application;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.PerfilBasePort;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.model.EstadoEliminacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.model.Perfil;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.model.SolicitudEliminacion;
@@ -11,7 +12,6 @@ import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.repository.S
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.repository.UbicacionRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.servicios.application.port.ServicioConsultaPort;
 import java.time.OffsetDateTime;
-import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * (F02-QA-03); la confirmación queda registrada y la cuenta sigue activa hasta definirla.
  */
 @Service
-public class PerfilService {
+public class PerfilService implements PerfilBasePort {
     private final PerfilRepository perfiles;
     private final UbicacionRepository ubicaciones;
     private final SolicitudEliminacionRepository eliminaciones;
@@ -40,6 +40,7 @@ public class PerfilService {
     public record PerfilPropio(UUID usuarioId, String nombre, String telefono, String preferenciaVisibilidad,
                                String zonaAproximada, String direccionExacta, int version) {}
 
+    @Override
     @Transactional
     public void crearPerfilBase(UUID usuarioId) {
         perfiles.guardar(new Perfil(usuarioId, null, null, Visibilidad.SOLO_ZONA, 0));
@@ -157,9 +158,5 @@ public class PerfilService {
             eliminaciones.guardar(new SolicitudEliminacion(vencida.id(), vencida.usuarioId(),
                     vencida.fechaSolicitud(), vencida.fechaExpiracion(), EstadoEliminacion.EXPIRADA, null));
         }
-    }
-
-    public Optional<Perfil> perfilDe(UUID usuarioId) {
-        return perfiles.porUsuarioId(usuarioId);
     }
 }

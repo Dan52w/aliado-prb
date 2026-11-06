@@ -3,6 +3,7 @@ package com.sebastian.spring.mas.aliado.aliado.modules.administracion.presentati
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /** Contratos HTTP de administración (SPEC-12). */
@@ -34,8 +35,8 @@ public final class AdminDtos {
 
     public record ResolverVerificacionRequest(@NotBlank String estado) {}
 
-    public record BusquedaResponse(java.util.List<UsuarioResumen> usuarios,
-                                   java.util.List<SolicitudResumen> solicitudes) {}
+    public record BusquedaResponse(List<UsuarioResumen> usuarios,
+                                   List<SolicitudResumen> solicitudes) {}
     public record UsuarioResumen(UUID id, String email, String rol) {}
     public record SolicitudResumen(UUID id, String descripcion, String estado) {}
 }

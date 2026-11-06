@@ -21,11 +21,6 @@ public class PerfilProfesionalPersistenceAdapter implements PerfilProfesionalRep
     }
 
     @Override
-    public Optional<PerfilProfesional> porId(UUID id) {
-        return jpa.findById(id).map(e -> PerfilProfesionalPersistenceMapper.aDominio(e, mapper));
-    }
-
-    @Override
     public Optional<PerfilProfesional> porPrestadorId(UUID prestadorId) {
         return jpa.findByPrestadorId(prestadorId)
                 .map(e -> PerfilProfesionalPersistenceMapper.aDominio(e, mapper));

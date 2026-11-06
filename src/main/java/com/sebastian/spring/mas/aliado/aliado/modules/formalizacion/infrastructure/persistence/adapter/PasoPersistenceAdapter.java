@@ -2,7 +2,6 @@ package com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.infrastruct
 
 import com.sebastian.spring.mas.aliado.aliado.modules.formalizacion.infrastructure.persistence.mapper.FormalizacionPersistenceMapper;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 

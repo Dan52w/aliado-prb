@@ -83,14 +83,11 @@ public class SolicitudService implements SolicitudConsultaPort {
                     "La urgencia es obligatoria para publicar la solicitud.");
         }
         OffsetDateTime ahora = OffsetDateTime.now();
-        Solicitud solicitud = new Solicitud(UUID.randomUUID(), clienteId, categoria.id(), zona.id(),
+        UUID solicitudId = UUID.randomUUID();
+        Solicitud solicitud = new Solicitud(solicitudId, clienteId, categoria.id(), zona.id(),
                 descripcion.trim(), urgencia, estado, ahora, ahora, 0, List.of(),
-                List.of(new HistorialEstadoSolicitud(UUID.randomUUID(), null, null, estado, ahora)));
-        // El historial inicial referencia la solicitud recién creada.
-        Solicitud conHistorial = new Solicitud(solicitud.id(), clienteId, categoria.id(), zona.id(),
-                descripcion.trim(), urgencia, estado, ahora, ahora, 0, List.of(),
-                List.of(new HistorialEstadoSolicitud(UUID.randomUUID(), solicitud.id(), null, estado, ahora)));
-        Solicitud guardada = solicitudes.guardar(conHistorial);
+                List.of(new HistorialEstadoSolicitud(UUID.randomUUID(), solicitudId, null, estado, ahora)));
+        Solicitud guardada = solicitudes.guardar(solicitud);
         if (estado == EstadoSolicitud.PUBLICADA) {
             eventos.publicar(new Eventos.SolicitudPublicada(guardada.id(), clienteId, categoria.id(),
                     zona.id(), urgencia == null ? null : urgencia.name(), ahora));
@@ -125,7 +122,6 @@ public class SolicitudService implements SolicitudConsultaPort {
                 throw new BusinessException.BadRequest("URGENCIA_INVALIDA", "Urgencia inválida.");
             }
         }
-        boolean eraBorrador = actual.estado() == EstadoSolicitud.BORRADOR;
         Solicitud editada = new Solicitud(actual.id(), clienteId, nuevaCategoria, nuevaZona,
                 descripcion == null ? actual.descripcion() : descripcion.trim(), nuevaUrgencia,
                 actual.estado(), actual.fechaCreacion(), ahora, actual.version(), actual.fotos(), actual.historial());
@@ -204,7 +200,7 @@ public class SolicitudService implements SolicitudConsultaPort {
 
     @Override
     @Transactional(readOnly = true)
-    public java.util.List<Solicitud> publicadas() {
+    public List<Solicitud> publicadas() {
         return solicitudes.publicadas();
     }
 

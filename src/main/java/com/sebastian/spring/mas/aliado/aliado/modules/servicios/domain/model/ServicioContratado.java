@@ -2,6 +2,7 @@ package com.sebastian.spring.mas.aliado.aliado.modules.servicios.domain.model;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +26,13 @@ public record ServicioContratado(UUID id, UUID solicitudId, UUID propuestaId, UU
                 || estado == EstadoServicio.TERMINADO;
     }
 
+    public ServicioContratado conMensaje(MensajeServicio mensaje) {
+        var mensajes = new ArrayList<>(this.mensajes);
+        mensajes.add(mensaje);
+        return new ServicioContratado(id, solicitudId, propuestaId, clienteId, prestadorId, estado,
+                comunicacionHabilitada, fechaContratacion, version, historial, List.copyOf(mensajes));
+    }
+
     public ServicioContratado transitarA(EstadoServicio nuevo, UUID actorId, OffsetDateTime ahora) {
         boolean permitido = switch (estado) {
             case CONTRATADO -> nuevo == EstadoServicio.EN_EJECUCION || nuevo == EstadoServicio.CANCELADO;
@@ -36,7 +44,7 @@ public record ServicioContratado(UUID id, UUID solicitudId, UUID propuestaId, UU
             throw new BusinessException.Conflict("TRANSICION_INVALIDA",
                     "No se puede pasar de " + estado + " a " + nuevo + ".");
         }
-        var nuevoHistorial = new java.util.ArrayList<>(historial);
+        var nuevoHistorial = new ArrayList<>(historial);
         nuevoHistorial.add(new HistorialEstadoServicio(UUID.randomUUID(), id, estado, nuevo, actorId, ahora));
         return new ServicioContratado(id, solicitudId, propuestaId, clienteId, prestadorId, nuevo,
                 comunicacionHabilitada, fechaContratacion, version, List.copyOf(nuevoHistorial), mensajes);

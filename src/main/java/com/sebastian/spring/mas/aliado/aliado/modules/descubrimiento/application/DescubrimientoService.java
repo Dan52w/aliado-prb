@@ -5,6 +5,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.port.ConfianzaConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.descubrimiento.domain.model.PrestadorPublico;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.port.PerfilProfesionalConsultaPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.EstadoExposicion;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.PerfilProfesional;
 import java.util.List;
 import java.util.UUID;
@@ -37,14 +38,14 @@ public class DescubrimientoService {
         UUID zonaId = null;
         List<String> sugerencias = List.of();
         if (categoriaParam != null && !categoriaParam.isBlank()) {
-            categoriaId = resolverId(categoriaParam, true);
+            categoriaId = resolverCategoriaId(categoriaParam);
             if (categoriaId == null) {
                 sugerencias = catalogo.categoriasActivas().stream().map(c -> c.nombre()).toList();
                 return new ResultadoBusqueda(List.of(), sugerencias);
             }
         }
         if (zonaParam != null && !zonaParam.isBlank()) {
-            zonaId = resolverId(zonaParam, false);
+            zonaId = resolverZonaId(zonaParam);
             if (zonaId == null) {
                 sugerencias = catalogo.zonasActivas().stream().map(z -> z.nombre()).toList();
                 return new ResultadoBusqueda(List.of(), sugerencias);
@@ -59,24 +60,34 @@ public class DescubrimientoService {
     @Transactional(readOnly = true)
     public PrestadorPublico detalle(UUID prestadorId) {
         PerfilProfesional perfil = perfiles.porPrestadorId(prestadorId)
-                .filter(p -> p.estadoExposicion() == com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.EstadoExposicion.PUBLICO)
+                .filter(p -> p.estadoExposicion() == EstadoExposicion.PUBLICO)
                 .filter(p -> !p.disponibilidades().isEmpty())
                 .orElseThrow(() -> new BusinessException.NotFound("PERFIL_NO_DISPONIBLE",
                         "El perfil no está disponible."));
         return aPublico(perfil);
     }
 
-    private UUID resolverId(String param, boolean esCategoria) {
+    private UUID resolverCategoriaId(String param) {
+        UUID id = comoUuid(param);
+        if (id != null) {
+            return catalogo.categoriaPorId(id).isPresent() ? id : null;
+        }
+        return catalogo.categoriaPorNombre(param.trim()).map(c -> c.id()).orElse(null);
+    }
+
+    private UUID resolverZonaId(String param) {
+        UUID id = comoUuid(param);
+        if (id != null) {
+            return catalogo.zonaPorId(id).isPresent() ? id : null;
+        }
+        return catalogo.zonaPorNombre(param.trim()).map(z -> z.id()).orElse(null);
+    }
+
+    private UUID comoUuid(String param) {
         try {
-            UUID id = UUID.fromString(param.trim());
-            boolean existe = esCategoria
-                    ? catalogo.categoriaPorId(id).isPresent()
-                    : catalogo.zonaPorId(id).isPresent();
-            return existe ? id : null;
+            return UUID.fromString(param.trim());
         } catch (IllegalArgumentException ex) {
-            return esCategoria
-                    ? catalogo.categoriaPorNombre(param.trim()).map(c -> c.id()).orElse(null)
-                    : catalogo.zonaPorNombre(param.trim()).map(z -> z.id()).orElse(null);
+            return null;
         }
     }
 
@@ -88,7 +99,7 @@ public class DescubrimientoService {
         var confianzaInfo = confianza.confianzaDe(perfil.prestadorId());
         return new PrestadorPublico(perfil.prestadorId(), categorias, zonas,
                 confianzaInfo.reputacion().valor(), confianzaInfo.reputacion().cantidad(),
-                confianzaInfo.nivelVerificacion(),
+                confianzaInfo.nivelVerificacion().name(),
                 perfil.disponibilidades().stream()
                         .map(d -> new PrestadorPublico.Bloque(d.diaSemana(), d.horaInicio(), d.horaFin())).toList(),
                 perfil.datosGenerales());

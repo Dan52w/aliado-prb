@@ -1,6 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
+import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoAdminPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.domain.model.Categoria;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.domain.model.EstadoCatalogo;
@@ -15,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Catálogo administrable (SPEC-04 crea las tablas; SPEC-12 las administra). */
 @Service
-public class CatalogoService implements CatalogoConsultaPort {
+public class CatalogoService implements CatalogoConsultaPort, CatalogoAdminPort {
     private final CategoriaRepository categorias;
     private final ZonaRepository zonas;
 
@@ -35,9 +36,8 @@ public class CatalogoService implements CatalogoConsultaPort {
 
     @Transactional
     public Categoria actualizarCategoria(UUID id, String nombre, String estado) {
-        Categoria actual = categorias.porId(id)
-                .orElseThrow(() -> new BusinessException.NotFound("CATEGORIA_NO_ENCONTRADA", "Categoría no encontrada."));
-        EstadoCatalogo nuevoEstado = estado == null ? actual.estado() : EstadoCatalogo.valueOf(estado);
+        Categoria actual = categoriaPorIdOError(id);
+        EstadoCatalogo nuevoEstado = estadoOActual(estado, actual.estado());
         return categorias.guardar(new Categoria(id,
                 nombre == null ? actual.nombre() : nombre.trim(), nuevoEstado));
     }
@@ -45,8 +45,7 @@ public class CatalogoService implements CatalogoConsultaPort {
     /** Borrado lógico (SPEC-12): desactivar no rompe borradores ni coberturas existentes. */
     @Transactional
     public void desactivarCategoria(UUID id) {
-        Categoria actual = categorias.porId(id)
-                .orElseThrow(() -> new BusinessException.NotFound("CATEGORIA_NO_ENCONTRADA", "Categoría no encontrada."));
+        Categoria actual = categoriaPorIdOError(id);
         categorias.guardar(new Categoria(id, actual.nombre(), EstadoCatalogo.INACTIVO));
     }
 
@@ -61,9 +60,8 @@ public class CatalogoService implements CatalogoConsultaPort {
 
     @Transactional
     public Zona actualizarZona(UUID id, String nombre, String coberturaGeografica, String estado) {
-        Zona actual = zonas.porId(id)
-                .orElseThrow(() -> new BusinessException.NotFound("ZONA_NO_ENCONTRADA", "Zona no encontrada."));
-        EstadoCatalogo nuevoEstado = estado == null ? actual.estado() : EstadoCatalogo.valueOf(estado);
+        Zona actual = zonaPorIdOError(id);
+        EstadoCatalogo nuevoEstado = estadoOActual(estado, actual.estado());
         return zonas.guardar(new Zona(id,
                 nombre == null ? actual.nombre() : nombre.trim(),
                 coberturaGeografica == null ? actual.coberturaGeografica() : coberturaGeografica,
@@ -72,8 +70,7 @@ public class CatalogoService implements CatalogoConsultaPort {
 
     @Transactional
     public void desactivarZona(UUID id) {
-        Zona actual = zonas.porId(id)
-                .orElseThrow(() -> new BusinessException.NotFound("ZONA_NO_ENCONTRADA", "Zona no encontrada."));
+        Zona actual = zonaPorIdOError(id);
         zonas.guardar(new Zona(id, actual.nombre(), actual.coberturaGeografica(), EstadoCatalogo.INACTIVO));
     }
 
@@ -90,6 +87,29 @@ public class CatalogoService implements CatalogoConsultaPort {
     private void validarNombre(String nombre) {
         if (nombre == null || nombre.isBlank()) {
             throw new BusinessException.BadRequest("NOMBRE_REQUERIDO", "El nombre es obligatorio.");
+        }
+    }
+
+    private Categoria categoriaPorIdOError(UUID id) {
+        return categorias.porId(id)
+                .orElseThrow(() -> new BusinessException.NotFound("CATEGORIA_NO_ENCONTRADA",
+                        "Categoría no encontrada."));
+    }
+
+    private Zona zonaPorIdOError(UUID id) {
+        return zonas.porId(id)
+                .orElseThrow(() -> new BusinessException.NotFound("ZONA_NO_ENCONTRADA", "Zona no encontrada."));
+    }
+
+    private EstadoCatalogo estadoOActual(String estado, EstadoCatalogo actual) {
+        if (estado == null) {
+            return actual;
+        }
+        try {
+            return EstadoCatalogo.valueOf(estado);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException.BadRequest("ESTADO_INVALIDO",
+                    "Estado inválido: use ACTIVO o INACTIVO.");
         }
     }
 

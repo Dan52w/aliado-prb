@@ -1,7 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.confianza.infrastructure.persistence.adapter;
 
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.infrastructure.persistence.mapper.ConfianzaPersistenceMapper;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;

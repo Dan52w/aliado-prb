@@ -1,7 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.confianza.infrastructure.persistence.adapter;
 
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.infrastructure.persistence.mapper.ConfianzaPersistenceMapper;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -39,12 +38,6 @@ public class SolicitudVerificacionPersistenceAdapter implements SolicitudVerific
     @Override
     public long contarAprobadasDePrestador(UUID prestadorId) {
         return verificaciones.countByPrestadorIdAndEstado(prestadorId, "APROBADA");
-    }
-
-    @Override
-    public List<SolicitudVerificacion> pendientes() {
-        return verificaciones.findByEstadoOrderByFechaSolicitudAsc("PENDIENTE").stream()
-                .map(ConfianzaPersistenceMapper::aDominio).toList();
     }
 
     @Override

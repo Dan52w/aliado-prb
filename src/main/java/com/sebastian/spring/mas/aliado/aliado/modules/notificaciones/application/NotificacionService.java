@@ -1,6 +1,8 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application;
 
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.CanalEntregaNotificacion;
+import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.EntregaNotificacionesPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.NotificacionConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.NotificacionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.domain.model.Canal;
 import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.domain.model.EstadoEntrega;
@@ -19,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Sin endpoint de creación: una notificación nunca se genera sin un evento real (SC-004).
  */
 @Service
-public class NotificacionService implements NotificacionPort {
+public class NotificacionService implements NotificacionPort, NotificacionConsultaPort, EntregaNotificacionesPort {
     private final NotificacionRepository notificaciones;
     private final CanalEntregaNotificacion canal;
 
@@ -28,42 +30,40 @@ public class NotificacionService implements NotificacionPort {
         this.canal = canal;
     }
 
-    /** DTO de lectura (SPEC-09): servicioId se proyecta desde aggregateId cuando aplica. */
-    public record NotificacionDto(UUID id, String tipo, UUID servicioId, String detalle,
-                                  String estadoEntrega, OffsetDateTime fechaGeneracion) {}
-
     @Override
     @Transactional
-    public void registrar(String tipo, UUID aggregateId, UUID destinatarioId, int eventVersion,
-                          String detalle, String canalNombre) {
-        TipoNotificacion tipoEnum = TipoNotificacion.valueOf(tipo);
-        if (notificaciones.existeEvento(tipo, aggregateId, destinatarioId, eventVersion)) {
+    public void registrar(TipoNotificacion tipo, UUID aggregateId, UUID destinatarioId, int eventVersion,
+                          String detalle, Canal canalEntrega) {
+        if (notificaciones.existeEvento(tipo.name(), aggregateId, destinatarioId, eventVersion)) {
             return; // Idempotencia por evento (plan general 19.3): no duplicar avisos.
         }
-        Canal canalEnum = canalNombre == null ? Canal.PUSH : Canal.valueOf(canalNombre);
-        Notificacion notificacion = new Notificacion(UUID.randomUUID(), destinatarioId, tipoEnum, aggregateId,
-                eventVersion, detalle, canalEnum, EstadoEntrega.PENDIENTE, 0, OffsetDateTime.now(), null);
+        Canal canalEfectivo = canalEntrega == null ? Canal.PUSH : canalEntrega;
+        Notificacion notificacion = new Notificacion(UUID.randomUUID(), destinatarioId, tipo, aggregateId,
+                eventVersion, detalle, canalEfectivo, EstadoEntrega.PENDIENTE, 0, OffsetDateTime.now(), null);
         notificaciones.guardar(notificacion);
     }
 
+    @Override
     @Transactional(readOnly = true)
-    public List<NotificacionDto> listarPropias(UUID destinatarioId) {
-        return notificaciones.porDestinatario(destinatarioId).stream().map(this::aDto).toList();
+    public List<NotificacionConsulta> listarPropias(UUID destinatarioId) {
+        return notificaciones.porDestinatario(destinatarioId).stream().map(this::aConsulta).toList();
     }
 
+    @Override
     @Transactional(readOnly = true)
-    public List<NotificacionDto> listarPorTipo(UUID destinatarioId, String tipo) {
-        return notificaciones.porDestinatarioYTipo(destinatarioId, tipo).stream().map(this::aDto).toList();
+    public List<NotificacionConsulta> listarPorTipo(UUID destinatarioId, TipoNotificacion tipo) {
+        return notificaciones.porDestinatarioYTipo(destinatarioId, tipo.name()).stream().map(this::aConsulta).toList();
     }
 
-    private NotificacionDto aDto(Notificacion n) {
+    private NotificacionConsulta aConsulta(Notificacion n) {
         UUID servicioId = (n.tipo() == TipoNotificacion.ACEPTACION_PROPUESTA
                 || n.tipo() == TipoNotificacion.CAMBIO_ESTADO_SERVICIO) ? n.aggregateId() : null;
-        return new NotificacionDto(n.id(), n.tipo().name(), servicioId, n.detalle(),
-                n.estadoEntrega().name(), n.fechaGeneracion());
+        return new NotificacionConsulta(n.id(), n.tipo(), servicioId, n.detalle(),
+                n.estadoEntrega(), n.fechaGeneracion());
     }
 
     /** Worker de entrega: reintenta PENDIENTE/FALLIDA; a los 3 intentos queda FALLIDA. */
+    @Override
     @Transactional
     public void entregarPendientes() {
         for (Notificacion pendiente : notificaciones.pendientesParaEntrega()) {

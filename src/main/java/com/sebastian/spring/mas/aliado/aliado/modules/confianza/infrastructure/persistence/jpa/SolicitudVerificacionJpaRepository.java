@@ -11,7 +11,6 @@ public interface SolicitudVerificacionJpaRepository extends JpaRepository<Solici
     Optional<SolicitudVerificacionEntity> findByPrestadorIdAndEstado(UUID prestadorId, String estado);
     Optional<SolicitudVerificacionEntity> findFirstByPrestadorIdOrderByFechaSolicitudDesc(UUID prestadorId);
     long countByPrestadorIdAndEstado(UUID prestadorId, String estado);
-    List<SolicitudVerificacionEntity> findByEstadoOrderByFechaSolicitudAsc(String estado);
 
     @Query("select s from SolicitudVerificacionEntity s where s.prestadorId = :prestadorId order by s.fechaSolicitud desc")
     List<SolicitudVerificacionEntity> findAllByPrestador(UUID prestadorId);

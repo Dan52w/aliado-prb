@@ -4,6 +4,8 @@ import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.mode
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.model.Auditoria;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.model.BloqueoPreventivo;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.model.MarcaAltoRiesgo;
+import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.model.TipoAccionModeracion;
+import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.model.TipoObjetivoModeracion;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.infrastructure.persistence.entity.AccionModeracionEntity;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.infrastructure.persistence.entity.AuditoriaEntity;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.infrastructure.persistence.entity.BloqueoEntity;
@@ -30,7 +32,9 @@ public final class AdministracionPersistenceMapper {
     }
 
     public static AccionModeracion aDominio(AccionModeracionEntity e) {
-        return new AccionModeracion(e.getId(), e.getAdministradorId(), e.getTipo(), e.getObjetivoTipo(),
+        return new AccionModeracion(e.getId(), e.getAdministradorId(),
+                TipoAccionModeracion.valueOf(e.getTipo()),
+                TipoObjetivoModeracion.valueOf(e.getObjetivoTipo()),
                 e.getObjetivoId(), e.getMotivo(), e.getFecha());
     }
 
@@ -38,8 +42,8 @@ public final class AdministracionPersistenceMapper {
         AccionModeracionEntity e = new AccionModeracionEntity();
         e.setId(a.id());
         e.setAdministradorId(a.administradorId());
-        e.setTipo(a.tipo());
-        e.setObjetivoTipo(a.objetivoTipo());
+        e.setTipo(a.tipo().name());
+        e.setObjetivoTipo(a.objetivoTipo().name());
         e.setObjetivoId(a.objetivoId());
         e.setMotivo(a.motivo());
         e.setFecha(a.fecha());

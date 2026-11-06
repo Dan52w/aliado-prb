@@ -1,6 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.config;
 
-import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.SesionService;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.SesionPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,7 +21,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SessionAuthFilter sessionAuthFilter(SesionService sesionService) {
+    public SessionAuthFilter sessionAuthFilter(SesionPort sesionService) {
         return new SessionAuthFilter(sesionService);
     }
 

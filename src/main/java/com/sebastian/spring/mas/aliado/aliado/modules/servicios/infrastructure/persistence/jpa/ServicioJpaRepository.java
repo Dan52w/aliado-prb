@@ -4,6 +4,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.servicios.infrastructure.p
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -12,6 +13,9 @@ public interface ServicioJpaRepository extends JpaRepository<ServicioEntity, UUI
 
     @Query("select s from ServicioEntity s where s.clienteId = :usuarioId or s.prestadorId = :usuarioId order by s.fechaContratacion desc")
     List<ServicioEntity> findByUsuario(UUID usuarioId);
+
+    @Query("select s from ServicioEntity s where s.clienteId = :usuarioId or s.prestadorId = :usuarioId order by s.fechaContratacion desc")
+    List<ServicioEntity> findByUsuario(UUID usuarioId, Pageable pageable);
 
     @Query("select s from ServicioEntity s where (s.clienteId = :usuarioId or s.prestadorId = :usuarioId)"
             + " and s.estado in ('CONTRATADO', 'EN_EJECUCION', 'TERMINADO')")

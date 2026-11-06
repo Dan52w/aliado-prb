@@ -17,12 +17,14 @@ import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.repository
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,8 +55,8 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
             throw new BusinessException.Conflict("PERFIL_YA_EXISTE",
                     "El prestador ya tiene un perfil profesional; edítalo en lugar de crear otro.");
         }
-        Set<UUID> categorias = validarCatalogo(categoriaIds, true);
-        Set<UUID> zonas = validarCatalogo(zonaIds, false);
+        Set<UUID> categorias = validarCategorias(categoriaIds);
+        Set<UUID> zonas = validarZonas(zonaIds);
         OffsetDateTime ahora = OffsetDateTime.now();
         PerfilProfesional perfil = new PerfilProfesional(UUID.randomUUID(), prestadorId,
                 datosGenerales == null ? Map.of() : datosGenerales, EstadoExposicion.PUBLICO, ahora, ahora,
@@ -72,13 +74,13 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
     @Transactional
     public PerfilProfesional actualizarCategorias(UUID prestadorId, List<UUID> categoriaIds) {
         PerfilProfesional actual = propio(prestadorId);
-        return perfiles.guardar(actual.conCategorias(validarCatalogo(categoriaIds, true)));
+        return perfiles.guardar(actual.conCategorias(validarCategorias(categoriaIds)));
     }
 
     @Transactional
     public PerfilProfesional actualizarZonas(UUID prestadorId, List<UUID> zonaIds) {
         PerfilProfesional actual = propio(prestadorId);
-        return perfiles.guardar(actual.conZonas(validarCatalogo(zonaIds, false)));
+        return perfiles.guardar(actual.conZonas(validarZonas(zonaIds)));
     }
 
     @Transactional
@@ -95,12 +97,9 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
         }
         ExperienciaProfesional experiencia = new ExperienciaProfesional(UUID.randomUUID(), actual.id(),
                 descripcion.trim(), fechaInicio, fechaFin);
-        var lista = new java.util.ArrayList<>(actual.experiencias());
+        var lista = new ArrayList<>(actual.experiencias());
         lista.add(experiencia);
-        perfiles.guardar(new PerfilProfesional(actual.id(), actual.prestadorId(), actual.datosGenerales(),
-                actual.estadoExposicion(), actual.fechaCreacion(), OffsetDateTime.now(), actual.categoriaIds(),
-                actual.zonaIds(), List.copyOf(lista), actual.portafolio(), actual.disponibilidades(),
-                actual.compromisos()));
+        perfiles.guardar(actual.conExperiencias(List.copyOf(lista)));
         return experiencia;
     }
 
@@ -118,12 +117,9 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
         }
         ServicioPortafolio servicio = new ServicioPortafolio(UUID.randomUUID(), actual.id(),
                 descripcion.trim(), evidenciaKey, OffsetDateTime.now());
-        var lista = new java.util.ArrayList<>(actual.portafolio());
+        var lista = new ArrayList<>(actual.portafolio());
         lista.add(servicio);
-        perfiles.guardar(new PerfilProfesional(actual.id(), actual.prestadorId(), actual.datosGenerales(),
-                actual.estadoExposicion(), actual.fechaCreacion(), OffsetDateTime.now(), actual.categoriaIds(),
-                actual.zonaIds(), actual.experiencias(), List.copyOf(lista), actual.disponibilidades(),
-                actual.compromisos()));
+        perfiles.guardar(actual.conPortafolio(List.copyOf(lista)));
         return servicio;
     }
 
@@ -217,18 +213,24 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
                         "Primero debes crear tu perfil profesional."));
     }
 
-    private Set<UUID> validarCatalogo(List<UUID> ids, boolean esCategoria) {
+    private Set<UUID> validarCategorias(List<UUID> ids) {
+        return validarExistentesActivos(ids, "categoría",
+                id -> catalogo.categoriaPorId(id).map(c -> c.estado() == EstadoCatalogo.ACTIVO).orElse(false));
+    }
+
+    private Set<UUID> validarZonas(List<UUID> ids) {
+        return validarExistentesActivos(ids, "zona de atención",
+                id -> catalogo.zonaPorId(id).map(z -> z.estado() == EstadoCatalogo.ACTIVO).orElse(false));
+    }
+
+    private Set<UUID> validarExistentesActivos(List<UUID> ids, String que, Predicate<UUID> activo) {
         if (ids == null || ids.isEmpty()) {
             throw new BusinessException.BadRequest("CATALOGO_REQUERIDO",
-                    esCategoria ? "El perfil requiere al menos una categoría."
-                            : "El perfil requiere al menos una zona de atención.");
+                    "El perfil requiere al menos una " + que + ".");
         }
         Set<UUID> validos = new HashSet<>();
         for (UUID id : ids) {
-            boolean activo = esCategoria
-                    ? catalogo.categoriaPorId(id).map(c -> c.estado() == EstadoCatalogo.ACTIVO).orElse(false)
-                    : catalogo.zonaPorId(id).map(z -> z.estado() == EstadoCatalogo.ACTIVO).orElse(false);
-            if (!activo) {
+            if (!activo.test(id)) {
                 throw new BusinessException.BadRequest("CATALOGO_INVALIDO",
                         "Un elemento del catálogo no existe o no está activo: " + id);
             }
@@ -240,11 +242,6 @@ public class PerfilProfesionalService implements PerfilProfesionalConsultaPort {
     @Override
     public Optional<PerfilProfesional> porPrestadorId(UUID prestadorId) {
         return perfiles.porPrestadorId(prestadorId);
-    }
-
-    @Override
-    public Optional<PerfilProfesional> porId(UUID id) {
-        return perfiles.porId(id);
     }
 
     @Override

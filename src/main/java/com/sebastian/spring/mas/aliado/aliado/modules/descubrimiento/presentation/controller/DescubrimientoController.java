@@ -3,7 +3,7 @@ package com.sebastian.spring.mas.aliado.aliado.modules.descubrimiento.presentati
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
 import com.sebastian.spring.mas.aliado.aliado.modules.descubrimiento.application.DescubrimientoService;
 import com.sebastian.spring.mas.aliado.aliado.modules.descubrimiento.domain.model.PrestadorPublico;
-import java.util.List;
+import com.sebastian.spring.mas.aliado.aliado.modules.descubrimiento.presentation.dto.DescubrimientoDtos;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,19 +22,28 @@ public class DescubrimientoController {
         this.service = service;
     }
 
-    public record BusquedaResponse(List<PrestadorPublico> prestadores, List<String> sugerencias) {}
+    private DescubrimientoDtos.PrestadorPublicoResponse aRespuesta(PrestadorPublico p) {
+        return new DescubrimientoDtos.PrestadorPublicoResponse(p.id(), p.categorias(), p.zonas(),
+                p.reputacionAgregada(), p.cantidadCalificaciones(), p.nivelVerificacion(),
+                p.disponibilidad().stream()
+                        .map(b -> new DescubrimientoDtos.BloqueResponse(b.diaSemana(), b.horaInicio(), b.horaFin()))
+                        .toList(),
+                p.datosGenerales());
+    }
 
     @GetMapping("/prestadores")
-    public ResponseEntity<BusquedaResponse> buscar(@RequestParam(required = false) String categoria,
-                                                   @RequestParam(required = false) String zona) {
+    public ResponseEntity<DescubrimientoDtos.BusquedaResponse> buscar(
+            @RequestParam(required = false) String categoria,
+            @RequestParam(required = false) String zona) {
         SecurityUtils.exigirRol("CLIENTE");
         var resultado = service.buscar(categoria, zona);
-        return ResponseEntity.ok(new BusquedaResponse(resultado.prestadores(), resultado.sugerencias()));
+        return ResponseEntity.ok(new DescubrimientoDtos.BusquedaResponse(
+                resultado.prestadores().stream().map(this::aRespuesta).toList(), resultado.sugerencias()));
     }
 
     @GetMapping("/prestadores/{id}/perfil")
-    public ResponseEntity<PrestadorPublico> detalle(@PathVariable UUID id) {
+    public ResponseEntity<DescubrimientoDtos.PrestadorPublicoResponse> detalle(@PathVariable UUID id) {
         SecurityUtils.exigirRol("CLIENTE");
-        return ResponseEntity.ok(service.detalle(id));
+        return ResponseEntity.ok(aRespuesta(service.detalle(id)));
     }
 }

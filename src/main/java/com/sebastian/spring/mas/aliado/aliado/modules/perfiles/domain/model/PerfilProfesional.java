@@ -1,6 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,13 +29,23 @@ public record PerfilProfesional(UUID id, UUID prestadorId, Map<String, Object> d
                 OffsetDateTime.now(), categoriaIds, zonaIds, experiencias, portafolio, disponibilidades, compromisos);
     }
 
+    public PerfilProfesional conExperiencias(List<ExperienciaProfesional> nuevas) {
+        return new PerfilProfesional(id, prestadorId, datosGenerales, estadoExposicion, fechaCreacion,
+                OffsetDateTime.now(), categoriaIds, zonaIds, nuevas, portafolio, disponibilidades, compromisos);
+    }
+
+    public PerfilProfesional conPortafolio(List<ServicioPortafolio> nuevo) {
+        return new PerfilProfesional(id, prestadorId, datosGenerales, estadoExposicion, fechaCreacion,
+                OffsetDateTime.now(), categoriaIds, zonaIds, experiencias, nuevo, disponibilidades, compromisos);
+    }
+
     public PerfilProfesional conDisponibilidades(List<Disponibilidad> nuevas) {
         return new PerfilProfesional(id, prestadorId, datosGenerales, estadoExposicion, fechaCreacion,
                 OffsetDateTime.now(), categoriaIds, zonaIds, experiencias, portafolio, nuevas, compromisos);
     }
 
     public PerfilProfesional conCompromiso(CompromisoAgenda compromiso) {
-        var lista = new java.util.ArrayList<>(compromisos);
+        var lista = new ArrayList<>(compromisos);
         lista.removeIf(c -> c.id().equals(compromiso.id()));
         lista.add(compromiso);
         return new PerfilProfesional(id, prestadorId, datosGenerales, estadoExposicion, fechaCreacion,

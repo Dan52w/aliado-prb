@@ -1,7 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.reportes.presentation.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;

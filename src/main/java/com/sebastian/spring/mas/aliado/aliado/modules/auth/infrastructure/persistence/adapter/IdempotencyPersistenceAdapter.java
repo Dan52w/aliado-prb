@@ -1,6 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.auth.infrastructure.persistence.adapter;
 
-import com.sebastian.spring.mas.aliado.aliado.modules.auth.domain.repository.IdempotencyRepository;
+import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.infrastructure.persistence.entity.IdempotencyKeyEntity;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.infrastructure.persistence.entity.IdempotencyKeyId;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.infrastructure.persistence.jpa.IdempotencyJpaRepository;

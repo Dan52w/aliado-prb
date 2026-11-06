@@ -1,7 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.config;
 
 import com.sebastian.spring.mas.aliado.aliado.common.web.CurrentUser;
-import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.SesionService;
+import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.SesionPort;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,9 +19,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * Las rutas públicas y la documentación quedan fuera del filtro.
  */
 public class SessionAuthFilter extends OncePerRequestFilter {
-    private final SesionService sesionService;
+    private final SesionPort sesionService;
 
-    public SessionAuthFilter(SesionService sesionService) {
+    public SessionAuthFilter(SesionPort sesionService) {
         this.sesionService = sesionService;
     }
 

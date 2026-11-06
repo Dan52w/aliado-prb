@@ -2,9 +2,11 @@ package com.sebastian.spring.mas.aliado.aliado.common.web;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.IdempotencyService;
+import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyService;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.springframework.http.ResponseEntity;
 
 /**
@@ -45,5 +47,26 @@ public abstract class BaseController {
         } catch (IllegalArgumentException ex) {
             return null;
         }
+    }
+
+    /**
+     * Plantilla de comando idempotente: busca la respuesta guardada para la clave,
+     * ejecuta la acción solo si no existe y guarda el resultado. El usuario dueño
+     * de la respuesta se extrae del cuerpo, porque en algunos comandos (registro)
+     * solo se conoce después de ejecutar.
+     */
+    protected <T> ResponseEntity<?> ejecutarIdempotente(String claveHeader, String operacion,
+                                                        Function<T, UUID> usuarioDe, int statusExito,
+                                                        Supplier<T> accion) {
+        UUID clave = claveIdempotencia(claveHeader);
+        if (clave != null) {
+            var guardada = respuestaGuardada(clave, operacion);
+            if (guardada.isPresent()) {
+                return guardada.get();
+            }
+        }
+        T cuerpo = accion.get();
+        guardarRespuesta(clave, operacion, usuarioDe.apply(cuerpo), statusExito, cuerpo);
+        return ResponseEntity.status(statusExito).body(cuerpo);
     }
 }

@@ -37,6 +37,17 @@ public class PropuestaService implements PropuestaConsultaPort {
         this.eventos = eventos;
     }
 
+    @Transactional(readOnly = true)
+    public List<Propuesta> propuestasDeSolicitud(UUID solicitudId, UUID clienteId) {
+        var solicitud = solicitudes.porId(solicitudId)
+                .orElseThrow(() -> new BusinessException.NotFound("SOLICITUD_NO_ENCONTRADA",
+                        "Solicitud no encontrada."));
+        if (!solicitud.clienteId().equals(clienteId)) {
+            throw new BusinessException.NotFound("SOLICITUD_NO_ENCONTRADA", "Solicitud no encontrada.");
+        }
+        return activasDeSolicitud(solicitudId);
+    }
+
     @Transactional
     public Propuesta crear(UUID prestadorId, UUID solicitudId, String disponibilidad, String mensaje) {
         if (disponibilidad == null || disponibilidad.isBlank()) {
@@ -76,11 +87,7 @@ public class PropuestaService implements PropuestaConsultaPort {
         if (mensaje != null && mensaje.length() > 1000) {
             throw new BusinessException.BadRequest("MENSAJE_MUY_LARGO", "El mensaje admite máximo 1000 caracteres.");
         }
-        Propuesta editada = new Propuesta(actual.id(), actual.solicitudId(), actual.prestadorId(),
-                disponibilidad == null ? actual.disponibilidad() : disponibilidad.trim(),
-                mensaje == null ? actual.mensaje() : mensaje, EstadoPropuesta.ACTIVA,
-                actual.fechaCreacion(), OffsetDateTime.now(), actual.version());
-        return propuestas.guardar(editada);
+        return propuestas.guardar(actual.editada(disponibilidad, mensaje, OffsetDateTime.now()));
     }
 
     @Transactional
