@@ -1,6 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.perfil.infrastructure.persistence.adapter;
 
-import com.sebastian.spring.mas.aliado.aliado.common.security.CryptoService;
+import com.sebastian.spring.mas.aliado.aliado.common.security.CifradoPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.model.Ubicacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.domain.repository.UbicacionRepository;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfil.infrastructure.persistence.jpa.UbicacionJpaRepository;
@@ -13,9 +13,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class UbicacionPersistenceAdapter implements UbicacionRepository {
     private final UbicacionJpaRepository ubicaciones;
-    private final CryptoService crypto;
+    private final CifradoPort crypto;
 
-    public UbicacionPersistenceAdapter(UbicacionJpaRepository ubicaciones, CryptoService crypto) {
+    public UbicacionPersistenceAdapter(UbicacionJpaRepository ubicaciones, CifradoPort crypto) {
         this.ubicaciones = ubicaciones;
         this.crypto = crypto;
     }

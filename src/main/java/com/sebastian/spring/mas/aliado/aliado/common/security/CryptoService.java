@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
  * de desarrollo fija: NUNCA usar ese valor por defecto fuera de un entorno local de práctica.
  */
 @Service
-public class CryptoService {
+public class CryptoService implements CifradoPort {
     private static final Logger log = LoggerFactory.getLogger(CryptoService.class);
     private static final String ALGORITMO = "AES/GCM/NoPadding";
     private static final int IV_BYTES = 12;
@@ -41,6 +41,7 @@ public class CryptoService {
         this.clave = new SecretKeySpec(bytes, "AES");
     }
 
+    @Override
     public String cifrar(String textoPlano) {
         if (textoPlano == null) {
             return null;
@@ -60,6 +61,7 @@ public class CryptoService {
         }
     }
 
+    @Override
     public String descifrar(String textoCifrado) {
         if (textoCifrado == null) {
             return null;

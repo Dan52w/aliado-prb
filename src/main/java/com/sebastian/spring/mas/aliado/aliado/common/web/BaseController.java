@@ -2,7 +2,7 @@ package com.sebastian.spring.mas.aliado.aliado.common.web;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyService;
+import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotenciaPort;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -17,9 +17,9 @@ import org.springframework.http.ResponseEntity;
  */
 public abstract class BaseController {
     protected final ObjectMapper objectMapper;
-    protected final IdempotencyService idempotencyService;
+    protected final IdempotenciaPort idempotencyService;
 
-    protected BaseController(ObjectMapper objectMapper, IdempotencyService idempotencyService) {
+    protected BaseController(ObjectMapper objectMapper, IdempotenciaPort idempotencyService) {
         this.objectMapper = objectMapper;
         this.idempotencyService = idempotencyService;
     }

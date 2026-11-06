@@ -242,6 +242,17 @@ La etapa de creación de las migraciones iniciales de base de datos ya fue reali
 - No captures `Exception` de forma genérica para ocultar errores ni devuelvas respuestas exitosas cuando una operación falló.
 - Conserva el formato de error que defina el contrato vigente; si se requiere cambiarlo, identifica el impacto y solicita autorización.
 
+### Comunicación entre módulos y estado actual
+
+- Patrones que ya se usan y debes seguir:
+  - Auditoría: el puerto vive en `common/auditoria` (concepto transversal); los módulos lo consumen; ningún módulo depende de `administracion` para auditar.
+  - Lecturas entre módulos: el puerto lo define el módulo CONSUMIDOR (p. ej. `preferencias` define `ActividadNotificacionesPort` y `notificaciones` lo implementa). Nunca hagas que dos módulos se importen mutuamente.
+  - Integraciones (correo, storage, cifrado, idempotencia): el puerto vive en `common/` y la implementación concreta lo implementa (`CifradoPort`, `IdempotenciaPort`, `ArchivoStorageService`); el código depende del puerto, jamás de la clase concreta.
+- Estado de la migración al patrón UseCase: el registro público (CU001, `auth`) es la referencia — `RegistrarUsuarioUseCase` + `RegistrarUsuarioService` + `Command`/`Result` en `application/dto/` + `AuthPresentationMapper` + excepciones de dominio. Los demás módulos aún usan servicios de aplicación directos y mappers privados (`aRespuesta`) en el controlador; se migran caso de uso por caso de uso, no en un cambio global.
+- Los puertos entre módulos pueden devolver el agregado del módulo dueño; los read-models dedicados son una mejora futura, no un cambio ad hoc.
+- Flyway: si una base de desarrollo tiene un checksum distinto al de la migración, se recrea (`docker compose down -v` + `up -d`); nunca se edita la migración.
+- No hay tests HTTP/integración (MockMvc no está en el classpath de test): los tests son unitarios de dominio/aplicación con H2 y Flyway apagado.
+
 ## 5. Reglas para el monolito modular
 
 - Cada módulo debe ser propietario de su lógica de negocio, entidades de persistencia, repositorios concretos, casos de uso y controladores.

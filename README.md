@@ -6,7 +6,7 @@ monolito modular con Spring Boot 4.1.2, Java 21, PostgreSQL y Flyway.
 
 ## Alcance del MVP
 
-Implementado según `docs` y `docs`:
+Implementado según `docs/plans/` y `docs/specs/`:
 
 | SPEC | Módulo | Estado |
 |---|---|---|

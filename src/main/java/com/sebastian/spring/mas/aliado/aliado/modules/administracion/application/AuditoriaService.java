@@ -1,6 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.administracion.application;
 
-import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.port.AuditoriaPort;
+import com.sebastian.spring.mas.aliado.aliado.common.auditoria.AuditoriaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.model.Auditoria;
 import com.sebastian.spring.mas.aliado.aliado.modules.administracion.domain.repository.AuditoriaRepository;
 import java.time.OffsetDateTime;

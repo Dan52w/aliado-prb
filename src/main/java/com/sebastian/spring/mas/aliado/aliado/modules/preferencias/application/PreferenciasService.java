@@ -4,7 +4,7 @@ import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException
 import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoStorageService;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.RolConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.port.ConfianzaConsultaPort;
-import com.sebastian.spring.mas.aliado.aliado.modules.notificaciones.application.port.NotificacionConsultaPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.application.port.ActividadNotificacionesPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.model.DescargaHistorial;
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.model.PreferenciaNotificacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.preferencias.domain.model.TipoAviso;
@@ -32,13 +32,13 @@ public class PreferenciasService {
     private final DescargaRepository descargas;
     private final ServicioLecturaPort servicios;
     private final ConfianzaConsultaPort confianza;
-    private final NotificacionConsultaPort notificaciones;
+    private final ActividadNotificacionesPort notificaciones;
     private final RolConsultaPort roles;
     private final ArchivoStorageService storage;
 
     public PreferenciasService(PreferenciaRepository preferencias, DescargaRepository descargas,
                                ServicioLecturaPort servicios, ConfianzaConsultaPort confianza,
-                               NotificacionConsultaPort notificaciones, RolConsultaPort roles,
+                               ActividadNotificacionesPort notificaciones, RolConsultaPort roles,
                                ArchivoStorageService storage) {
         this.preferencias = preferencias;
         this.descargas = descargas;
@@ -145,7 +145,7 @@ public class PreferenciasService {
         servicios.porUsuario(usuarioId).forEach(s -> actividades.add(new Actividad("SERVICIO",
                 "Servicio " + s.estado().name().toLowerCase(), s.fechaContratacion())));
         notificaciones.listarPropias(usuarioId).forEach(n -> actividades.add(
-                new Actividad("NOTIFICACION", n.tipo().name() + ": " + n.detalle(), n.fechaGeneracion())));
+                new Actividad("NOTIFICACION", n.tipo() + ": " + n.detalle(), n.fechaGeneracion())));
         return actividades.stream()
                 .sorted(Comparator.comparing(Actividad::fecha).reversed())
                 .limit(20)

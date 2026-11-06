@@ -1,7 +1,7 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application;
 
+import com.sebastian.spring.mas.aliado.aliado.common.auditoria.AuditoriaPort;
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
-import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.port.AuditoriaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoAdminPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.domain.model.Categoria;

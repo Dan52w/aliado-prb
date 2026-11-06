@@ -4,10 +4,11 @@ import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.confianza.application.port.ConfianzaConsultaPort;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.AgendaService;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.PerfilProfesionalService;
-import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.Disponibilidad;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.dto.DisponibilidadDatos;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.dto.ExperienciaDatos;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.EstadoExposicion;
-import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.ExperienciaProfesional;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.PerfilProfesional;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.presentation.dto.PerfilProfesionalDtos;
 import jakarta.validation.Valid;
@@ -33,12 +34,14 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/perfiles")
 public class PerfilProfesionalController {
     private final PerfilProfesionalService service;
+    private final AgendaService agenda;
     private final ConfianzaConsultaPort confianza;
     private final CatalogoConsultaPort catalogo;
 
-    public PerfilProfesionalController(PerfilProfesionalService service, ConfianzaConsultaPort confianza,
-                                       CatalogoConsultaPort catalogo) {
+    public PerfilProfesionalController(PerfilProfesionalService service, AgendaService agenda,
+                                       ConfianzaConsultaPort confianza, CatalogoConsultaPort catalogo) {
         this.service = service;
+        this.agenda = agenda;
         this.confianza = confianza;
         this.catalogo = catalogo;
     }
@@ -60,9 +63,9 @@ public class PerfilProfesionalController {
     public ResponseEntity<PerfilProfesionalDtos.PerfilResponse> crear(
             @Valid @RequestBody PerfilProfesionalDtos.CrearRequest req) {
         SecurityUtils.exigirRol("PRESTADOR");
-        List<ExperienciaProfesional> experiencias = req.experiencia() == null ? List.of()
-                : req.experiencia().stream().map(e -> new ExperienciaProfesional(
-                        UUID.randomUUID(), null, e.descripcion(), e.fechaInicio(), e.fechaFin())).toList();
+        List<ExperienciaDatos> experiencias = req.experiencia() == null ? List.of()
+                : req.experiencia().stream().map(e -> new ExperienciaDatos(
+                        e.descripcion(), e.fechaInicio(), e.fechaFin())).toList();
         PerfilProfesional creado = service.crear(SecurityUtils.actual().id(), req.datosGenerales(),
                 req.categoriaIds(), req.zonaIds(), experiencias);
         return ResponseEntity.status(HttpStatus.CREATED).body(aRespuesta(creado));
@@ -131,8 +134,8 @@ public class PerfilProfesionalController {
     public ResponseEntity<PerfilProfesionalDtos.PerfilResponse> disponibilidad(
             @Valid @RequestBody PerfilProfesionalDtos.DisponibilidadRequest req) {
         SecurityUtils.exigirRol("PRESTADOR");
-        List<Disponibilidad> bloques = req.bloques().stream()
-                .map(b -> new Disponibilidad(null, null, b.diaSemana(), b.horaInicio(), b.horaFin())).toList();
+        List<DisponibilidadDatos> bloques = req.bloques().stream()
+                .map(b -> new DisponibilidadDatos(b.diaSemana(), b.horaInicio(), b.horaFin())).toList();
         return ResponseEntity.ok(aRespuesta(service.actualizarDisponibilidad(SecurityUtils.actual().id(), bloques)));
     }
 
@@ -140,7 +143,7 @@ public class PerfilProfesionalController {
     public ResponseEntity<PerfilProfesionalDtos.CompromisoResponse> crearCompromiso(
             @Valid @RequestBody PerfilProfesionalDtos.CompromisoRequest req) {
         SecurityUtils.exigirRol("PRESTADOR");
-        var c = service.crearCompromiso(SecurityUtils.actual().id(), req.fechaHoraInicio(), req.fechaHoraFin());
+        var c = agenda.crearCompromiso(SecurityUtils.actual().id(), req.fechaHoraInicio(), req.fechaHoraFin());
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 new PerfilProfesionalDtos.CompromisoResponse(c.id(), c.fechaHoraInicio(), c.fechaHoraFin(), c.origen().name()));
     }
@@ -149,7 +152,7 @@ public class PerfilProfesionalController {
     public ResponseEntity<PerfilProfesionalDtos.CompromisoResponse> actualizarCompromiso(
             @Valid @RequestBody PerfilProfesionalDtos.CompromisoRequest req) {
         SecurityUtils.exigirRol("PRESTADOR");
-        var c = service.actualizarCompromiso(SecurityUtils.actual().id(), req.id(),
+        var c = agenda.actualizarCompromiso(SecurityUtils.actual().id(), req.id(),
                 req.fechaHoraInicio(), req.fechaHoraFin());
         return ResponseEntity.ok(
                 new PerfilProfesionalDtos.CompromisoResponse(c.id(), c.fechaHoraInicio(), c.fechaHoraFin(), c.origen().name()));
@@ -158,7 +161,7 @@ public class PerfilProfesionalController {
     @GetMapping("/mio/agenda")
     public ResponseEntity<List<PerfilProfesionalDtos.CompromisoResponse>> agenda() {
         SecurityUtils.exigirRol("PRESTADOR");
-        return ResponseEntity.ok(service.listarAgenda(SecurityUtils.actual().id()).stream()
+        return ResponseEntity.ok(agenda.listarAgenda(SecurityUtils.actual().id()).stream()
                 .map(c -> new PerfilProfesionalDtos.CompromisoResponse(c.id(), c.fechaHoraInicio(),
                         c.fechaHoraFin(), c.origen().name())).toList());
     }

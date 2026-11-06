@@ -1,6 +1,6 @@
 package com.sebastian.spring.mas.aliado.aliado.modules.propuestas.presentation.controller;
 
-import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyService;
+import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotenciaPort;
 import com.sebastian.spring.mas.aliado.aliado.common.web.BaseController;
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
 import com.sebastian.spring.mas.aliado.aliado.modules.propuestas.application.PropuestaService;
@@ -27,7 +27,7 @@ public class PropuestaController extends BaseController {
     private final PropuestaService service;
 
     public PropuestaController(PropuestaService service, ObjectMapper objectMapper,
-                               IdempotencyService idempotencyService) {
+                               IdempotenciaPort idempotencyService) {
         super(objectMapper, idempotencyService);
         this.service = service;
     }

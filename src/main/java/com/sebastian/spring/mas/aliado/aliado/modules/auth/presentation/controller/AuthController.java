@@ -6,7 +6,7 @@ import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.AuthServi
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.dto.RegistrarUsuarioCommand;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.dto.ResultadoRegistro;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.usecase.RegistrarUsuarioUseCase;
-import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyService;
+import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotenciaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.SesionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.presentation.dto.AuthDtos;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.presentation.mapper.AuthPresentationMapper;
@@ -29,7 +29,7 @@ public class AuthController extends BaseController {
 
     public AuthController(AuthService authService, SesionPort sesionService,
                           RegistrarUsuarioUseCase registrarUsuarioUseCase,
-                          ObjectMapper objectMapper, IdempotencyService idempotencyService) {
+                          ObjectMapper objectMapper, IdempotenciaPort idempotencyService) {
         super(objectMapper, idempotencyService);
         this.authService = authService;
         this.sesionService = sesionService;

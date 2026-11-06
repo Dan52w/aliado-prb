@@ -2,7 +2,7 @@ package com.sebastian.spring.mas.aliado.aliado.domain;
 
 import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException;
 import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoValidacion;
-import com.sebastian.spring.mas.aliado.aliado.modules.administracion.application.port.AuditoriaPort;
+import com.sebastian.spring.mas.aliado.aliado.common.auditoria.AuditoriaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.AuthService;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.SesionService;
 import com.sebastian.spring.mas.aliado.aliado.modules.auth.application.port.PerfilBasePort;

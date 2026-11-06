@@ -4,7 +4,7 @@ import com.sebastian.spring.mas.aliado.aliado.common.exception.BusinessException
 import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoValidacion;
 import com.sebastian.spring.mas.aliado.aliado.common.web.BaseController;
 import com.sebastian.spring.mas.aliado.aliado.common.web.SecurityUtils;
-import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotencyService;
+import com.sebastian.spring.mas.aliado.aliado.common.idempotencia.IdempotenciaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.application.SolicitudService;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.domain.model.Solicitud;
 import com.sebastian.spring.mas.aliado.aliado.modules.solicitudes.presentation.dto.SolicitudDtos;
@@ -35,7 +35,7 @@ public class SolicitudController extends BaseController {
     private final SolicitudService solicitudService;
 
     public SolicitudController(SolicitudService solicitudService,
-                               ObjectMapper objectMapper, IdempotencyService idempotencyService) {
+                               ObjectMapper objectMapper, IdempotenciaPort idempotencyService) {
         super(objectMapper, idempotencyService);
         this.solicitudService = solicitudService;
     }

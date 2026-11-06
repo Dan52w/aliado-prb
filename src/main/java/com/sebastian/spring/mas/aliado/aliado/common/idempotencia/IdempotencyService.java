@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Servicio transversal de idempotencia (plan general, sección 14). */
 @Service
-public class IdempotencyService {
+public class IdempotencyService implements IdempotenciaPort {
     private final IdempotencyRepository repositorio;
     private final ObjectMapper objectMapper;
 
@@ -18,8 +18,7 @@ public class IdempotencyService {
         this.objectMapper = objectMapper;
     }
 
-    public record Respuesta(int statusCode, JsonNode cuerpo) {}
-
+    @Override
     @Transactional(readOnly = true)
     public Optional<Respuesta> buscar(UUID clave, String operacion) {
         if (clave == null) {
@@ -34,6 +33,7 @@ public class IdempotencyService {
         });
     }
 
+    @Override
     @Transactional
     public void guardar(UUID clave, String operacion, UUID usuarioId, int statusCode, JsonNode cuerpo) {
         if (clave == null) {

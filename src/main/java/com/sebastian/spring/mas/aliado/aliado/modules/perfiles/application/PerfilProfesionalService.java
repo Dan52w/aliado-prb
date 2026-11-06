@@ -5,13 +5,14 @@ import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoStorageServi
 import com.sebastian.spring.mas.aliado.aliado.common.storage.ArchivoValidacion;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.application.port.CatalogoConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.catalogo.domain.model.EstadoCatalogo;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.dto.DisponibilidadDatos;
+import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.dto.ExperienciaDatos;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.port.PerfilProfesionalConsultaPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.application.port.PerfilProfesionalModeracionPort;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.CompromisoAgenda;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.Disponibilidad;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.EstadoExposicion;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.ExperienciaProfesional;
-import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.OrigenCompromiso;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.PerfilProfesional;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.model.ServicioPortafolio;
 import com.sebastian.spring.mas.aliado.aliado.modules.perfiles.domain.repository.PerfilProfesionalRepository;
@@ -52,33 +53,30 @@ public class PerfilProfesionalService
     @Transactional
     public PerfilProfesional crear(UUID prestadorId, Map<String, Object> datosGenerales,
                                    List<UUID> categoriaIds, List<UUID> zonaIds,
-                                   List<ExperienciaProfesional> experiencias) {
+                                   List<ExperienciaDatos> experiencias) {
         if (perfiles.porPrestadorId(prestadorId).isPresent()) {
             throw new BusinessException.Conflict("PERFIL_YA_EXISTE",
                     "El prestador ya tiene un perfil profesional; edítalo en lugar de crear otro.");
         }
         Set<UUID> categorias = validarCategorias(categoriaIds);
         Set<UUID> zonas = validarZonas(zonaIds);
-        List<ExperienciaProfesional> experienciasValidas = experiencias == null ? List.of() : experiencias;
-        experienciasValidas.forEach(e -> validarExperiencia(e.descripcion(), e.fechaInicio(), e.fechaFin()));
+        List<ExperienciaDatos> experienciasValidas = experiencias == null ? List.of() : experiencias;
+        experienciasValidas.forEach(d -> validarExperiencia(d.descripcion(), d.fechaInicio(), d.fechaFin()));
+        List<ExperienciaProfesional> experienciasDominio = experienciasValidas.stream()
+                .map(d -> new ExperienciaProfesional(UUID.randomUUID(), null, d.descripcion(),
+                        d.fechaInicio(), d.fechaFin()))
+                .toList();
         OffsetDateTime ahora = OffsetDateTime.now();
         PerfilProfesional perfil = new PerfilProfesional(UUID.randomUUID(), prestadorId,
                 datosGenerales == null ? Map.of() : datosGenerales, EstadoExposicion.PUBLICO, ahora, ahora,
-                categorias, zonas, experienciasValidas,
+                categorias, zonas, experienciasDominio,
                 List.of(), List.of(), List.of());
         return perfiles.guardar(perfil);
     }
 
-    /** Misma validación que al agregar una experiencia suelta: en crear no se tragaba el 500. */
+    /** Misma validación que al agregar una experiencia suelta: en crear no se tragaba el 500. La invariante vive en el record; aquí solo se dispara su validación. */
     private static void validarExperiencia(String descripcion, LocalDate fechaInicio, LocalDate fechaFin) {
-        if (descripcion == null || descripcion.isBlank() || fechaInicio == null) {
-            throw new BusinessException.BadRequest("EXPERIENCIA_INVALIDA",
-                    "La experiencia requiere descripción y fecha de inicio.");
-        }
-        if (fechaFin != null && fechaFin.isBefore(fechaInicio)) {
-            throw new BusinessException.BadRequest("EXPERIENCIA_INVALIDA",
-                    "La fecha de fin no puede ser anterior a la de inicio.");
-        }
+        new ExperienciaProfesional(null, null, descripcion, fechaInicio, fechaFin);
     }
 
     @Transactional
@@ -148,9 +146,9 @@ public class PerfilProfesionalService
     }
 
     @Transactional
-    public PerfilProfesional actualizarDisponibilidad(UUID prestadorId, List<Disponibilidad> bloques) {
+    public PerfilProfesional actualizarDisponibilidad(UUID prestadorId, List<DisponibilidadDatos> bloques) {
         PerfilProfesional actual = propio(prestadorId);
-        for (Disponibilidad bloque : bloques) {
+        for (DisponibilidadDatos bloque : bloques) {
             if (bloque.horaInicio() == null || bloque.horaFin() == null
                     || !bloque.horaFin().isAfter(bloque.horaInicio())) {
                 throw new BusinessException.BadRequest("DISPONIBILIDAD_INVALIDA",
@@ -168,12 +166,12 @@ public class PerfilProfesionalService
             }
         }
         List<Disponibilidad> conIds = bloques.stream()
-                .map(b -> new Disponibilidad(b.id() == null ? UUID.randomUUID() : b.id(), actual.id(),
+                .map(b -> new Disponibilidad(UUID.randomUUID(), actual.id(),
                         b.diaSemana(), b.horaInicio(), b.horaFin())).toList();
         return perfiles.guardar(actual.conDisponibilidades(conIds));
     }
 
-    private boolean chocaConCompromiso(Disponibilidad bloque, CompromisoAgenda compromiso) {
+    private boolean chocaConCompromiso(DisponibilidadDatos bloque, CompromisoAgenda compromiso) {
         int diaCompromiso = compromiso.fechaHoraInicio().getDayOfWeek().getValue();
         if (bloque.diaSemana() != null && bloque.diaSemana() != diaCompromiso) {
             return false;
@@ -181,54 +179,6 @@ public class PerfilProfesionalService
         LocalTime inicio = compromiso.fechaHoraInicio().toLocalTime();
         LocalTime fin = compromiso.fechaHoraFin().toLocalTime();
         return bloque.horaInicio().isBefore(fin) && inicio.isBefore(bloque.horaFin());
-    }
-
-    @Transactional
-    public CompromisoAgenda crearCompromiso(UUID prestadorId, OffsetDateTime inicio, OffsetDateTime fin) {
-        return guardarCompromiso(prestadorId, null, inicio, fin);
-    }
-
-    @Transactional
-    public CompromisoAgenda actualizarCompromiso(UUID prestadorId, UUID compromisoId,
-                                                 OffsetDateTime inicio, OffsetDateTime fin) {
-        if (compromisoId == null) {
-            throw new BusinessException.BadRequest("COMPROMISO_INVALIDO",
-                    "PUT /mio/agenda exige el id del compromiso; sin id usa POST para crear.");
-        }
-        return guardarCompromiso(prestadorId, compromisoId, inicio, fin);
-    }
-
-    private CompromisoAgenda guardarCompromiso(UUID prestadorId, UUID compromisoId,
-                                               OffsetDateTime inicio, OffsetDateTime fin) {
-        PerfilProfesional actual = propio(prestadorId);
-        if (inicio == null || fin == null || !fin.isAfter(inicio)) {
-            throw new BusinessException.BadRequest("COMPROMISO_INVALIDO",
-                    "El compromiso requiere fin posterior al inicio.");
-        }
-        if (compromisoId != null && actual.compromisos().stream().noneMatch(c -> c.id().equals(compromisoId))) {
-            throw new BusinessException.NotFound("COMPROMISO_NO_ENCONTRADO", "Compromiso no encontrado.");
-        }
-        // Coherente con la regla disponibilidad/agenda (plan-05 T026): dos compromisos
-        // no pueden solaparse; en actualización se excluye el propio compromiso.
-        for (CompromisoAgenda otro : actual.compromisos()) {
-            if (compromisoId != null && otro.id().equals(compromisoId)) {
-                continue;
-            }
-            if (inicio.isBefore(otro.fechaHoraFin()) && otro.fechaHoraInicio().isBefore(fin)) {
-                throw new BusinessException.Conflict("CONFLICTO_AGENDA",
-                        "El compromiso se solapa con otro ya registrado.");
-            }
-        }
-        CompromisoAgenda compromiso = new CompromisoAgenda(
-                compromisoId == null ? UUID.randomUUID() : compromisoId, actual.id(),
-                inicio, fin, OrigenCompromiso.MANUAL);
-        perfiles.guardar(actual.conCompromiso(compromiso));
-        return compromiso;
-    }
-
-    @Transactional(readOnly = true)
-    public List<CompromisoAgenda> listarAgenda(UUID prestadorId) {
-        return propio(prestadorId).compromisos();
     }
 
     @Transactional(readOnly = true)

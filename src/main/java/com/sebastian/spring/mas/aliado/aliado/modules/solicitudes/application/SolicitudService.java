@@ -47,6 +47,26 @@ public class SolicitudService implements SolicitudConsultaPort {
                            String urgenciaTexto, String estadoDeseado) {
         // El estado se resuelve primero: el borrador es parcial (SPEC-04) y la
         // publicación exige todo. V8 relajó los NOT NULL de categoria/zona/descripción.
+        EstadoSolicitud estado = resolverEstado(estadoDeseado);
+        boolean borrador = estado == EstadoSolicitud.BORRADOR;
+        String descripcionLimpia = validarDescripcion(descripcion, borrador);
+        UUID categoriaValida = validarCategoria(categoriaId, borrador);
+        UUID zonaValida = validarZona(zonaId, borrador);
+        Urgencia urgencia = validarUrgencia(urgenciaTexto, estado);
+        OffsetDateTime ahora = OffsetDateTime.now();
+        UUID solicitudId = UUID.randomUUID();
+        Solicitud solicitud = new Solicitud(solicitudId, clienteId, categoriaValida, zonaValida,
+                descripcionLimpia, urgencia, estado, ahora, ahora, 0, List.of(),
+                List.of(new HistorialEstadoSolicitud(UUID.randomUUID(), solicitudId, null, estado, ahora)));
+        Solicitud guardada = solicitudes.guardar(solicitud);
+        if (estado == EstadoSolicitud.PUBLICADA) {
+            eventos.publicar(new Eventos.SolicitudPublicada(guardada.id(), clienteId, categoriaValida,
+                    zonaValida, urgencia == null ? null : urgencia.name(), ahora));
+        }
+        return guardada;
+    }
+
+    private EstadoSolicitud resolverEstado(String estadoDeseado) {
         EstadoSolicitud estado = EstadoSolicitud.PUBLICADA;
         if (estadoDeseado != null && !estadoDeseado.isBlank()) {
             try {
@@ -60,7 +80,10 @@ public class SolicitudService implements SolicitudConsultaPort {
                         "estadoDeseado debe ser BORRADOR o PUBLICADA.");
             }
         }
-        boolean borrador = estado == EstadoSolicitud.BORRADOR;
+        return estado;
+    }
+
+    private String validarDescripcion(String descripcion, boolean borrador) {
         String descripcionLimpia = descripcion == null ? null : descripcion.trim();
         if (!borrador && (descripcionLimpia == null || descripcionLimpia.isBlank())) {
             throw new BusinessException.BadRequest("DESCRIPCION_REQUERIDA", "La descripción es obligatoria.");
@@ -68,26 +91,38 @@ public class SolicitudService implements SolicitudConsultaPort {
         if (borrador && descripcionLimpia != null && descripcionLimpia.isBlank()) {
             descripcionLimpia = null;
         }
-        UUID categoriaValida = null;
+        return descripcionLimpia;
+    }
+
+    private UUID validarCategoria(UUID categoriaId, boolean borrador) {
         if (categoriaId != null) {
-            categoriaValida = catalogo.categoriaPorId(categoriaId)
+            return catalogo.categoriaPorId(categoriaId)
                     .filter(c -> c.estado() == EstadoCatalogo.ACTIVO)
                     .orElseThrow(() -> new BusinessException.BadRequest("CATEGORIA_INVALIDA",
                             "La categoría no existe o no está activa.")).id();
-        } else if (!borrador) {
+        }
+        if (!borrador) {
             throw new BusinessException.BadRequest("CATEGORIA_INVALIDA",
                     "La categoría es obligatoria para publicar la solicitud.");
         }
-        UUID zonaValida = null;
+        return null;
+    }
+
+    private UUID validarZona(UUID zonaId, boolean borrador) {
         if (zonaId != null) {
-            zonaValida = catalogo.zonaPorId(zonaId)
+            return catalogo.zonaPorId(zonaId)
                     .filter(z -> z.estado() == EstadoCatalogo.ACTIVO)
                     .orElseThrow(() -> new BusinessException.BadRequest("ZONA_INVALIDA",
                             "La zona no existe o no está activa.")).id();
-        } else if (!borrador) {
+        }
+        if (!borrador) {
             throw new BusinessException.BadRequest("ZONA_INVALIDA",
                     "La zona es obligatoria para publicar la solicitud.");
         }
+        return null;
+    }
+
+    private Urgencia validarUrgencia(String urgenciaTexto, EstadoSolicitud estado) {
         Urgencia urgencia = null;
         if (urgenciaTexto != null && !urgenciaTexto.isBlank()) {
             try {
@@ -101,17 +136,7 @@ public class SolicitudService implements SolicitudConsultaPort {
             throw new BusinessException.BadRequest("URGENCIA_REQUERIDA",
                     "La urgencia es obligatoria para publicar la solicitud.");
         }
-        OffsetDateTime ahora = OffsetDateTime.now();
-        UUID solicitudId = UUID.randomUUID();
-        Solicitud solicitud = new Solicitud(solicitudId, clienteId, categoriaValida, zonaValida,
-                descripcionLimpia, urgencia, estado, ahora, ahora, 0, List.of(),
-                List.of(new HistorialEstadoSolicitud(UUID.randomUUID(), solicitudId, null, estado, ahora)));
-        Solicitud guardada = solicitudes.guardar(solicitud);
-        if (estado == EstadoSolicitud.PUBLICADA) {
-            eventos.publicar(new Eventos.SolicitudPublicada(guardada.id(), clienteId, categoriaValida,
-                    zonaValida, urgencia == null ? null : urgencia.name(), ahora));
-        }
-        return guardada;
+        return urgencia;
     }
 
     @Transactional
