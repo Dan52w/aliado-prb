@@ -27,8 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Casos de uso de autenticación (SPEC-01, UC001–UC007).
- * Registro atómico: usuario + consentimiento + perfil base, o nada (FR-001/FR-002).
+ * Casos de uso de autenticación distintos al registro público (SPEC-01).
  * La recuperación no confirma ni niega la existencia de la cuenta (FR-006).
  */
 @Service
@@ -53,38 +52,7 @@ public class AuthService implements UsuarioConsultaPort, RolConsultaPort, Cuenta
         this.passwordEncoder = passwordEncoder;
     }
 
-    public record RegistroResultado(UUID id, String email, String rol) {}
     public record LoginResultado(String sessionToken, String rol) {}
-
-    @Transactional
-    public RegistroResultado registrar(String email, String password, Rol rol,
-                                       boolean aceptaTerminos, String versionTerminos) {
-        String correo = Usuario.normalizarEmail(email);
-        if (!aceptaTerminos || versionTerminos == null || versionTerminos.isBlank()) {
-            throw new BusinessException.BadRequest("TERMINOS_NO_ACEPTADOS",
-                    "Debe aceptar los términos y el tratamiento de datos.");
-        }
-        if (rol == Rol.ADMINISTRADOR) {
-            throw new BusinessException.BadRequest("ROL_NO_REGISTRABLE",
-                    "El rol ADMINISTRADOR no se registra por la API pública.");
-        }
-        try {
-            Usuario.validarPassword(password);
-        } catch (IllegalArgumentException ex) {
-            throw new BusinessException.BadRequest("PASSWORD_INVALIDA", ex.getMessage());
-        }
-        // FR-003: sin revelar el rol de la cuenta existente.
-        if (usuarios.existeEmail(correo)) {
-            throw new BusinessException.Conflict("CORREO_YA_REGISTRADO", "El correo ya está registrado.");
-        }
-        OffsetDateTime ahora = OffsetDateTime.now();
-        Usuario usuario = new Usuario(UUID.randomUUID(), correo, passwordEncoder.encode(password),
-                rol, EstadoCuenta.ACTIVA, ahora);
-        usuarios.guardar(usuario);
-        consentimientos.guardar(new Consentimiento(UUID.randomUUID(), usuario.id(), versionTerminos, ahora));
-        perfilService.crearPerfilBase(usuario.id());
-        return new RegistroResultado(usuario.id(), usuario.email(), usuario.rol().name());
-    }
 
     @Transactional
     public LoginResultado login(String email, String password) {
